@@ -49,13 +49,14 @@ class GraphitiClient:
         if not self.neo4j_password:
             raise ValueError("NEO4J_PASSWORD environment variable not set")
         
-        # LLM configuration
-        self.llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-        self.llm_api_key = os.getenv("LLM_API_KEY")
-        self.llm_choice = os.getenv("LLM_CHOICE", "gpt-4.1-mini")
+        # LLM configuration for Graphiti (supports separate ingestion provider)
+        # Use INGESTION_* vars if set, otherwise fall back to LLM_* vars
+        self.llm_base_url = os.getenv("INGESTION_LLM_BASE_URL") or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
+        self.llm_api_key = os.getenv("INGESTION_LLM_API_KEY") or os.getenv("LLM_API_KEY")
+        self.llm_choice = os.getenv("INGESTION_LLM_CHOICE") or os.getenv("LLM_CHOICE", "gpt-4.1-mini")
         
         if not self.llm_api_key:
-            raise ValueError("LLM_API_KEY environment variable not set")
+            raise ValueError("LLM_API_KEY or INGESTION_LLM_API_KEY environment variable not set")
         
         # Embedding configuration
         self.embedding_base_url = os.getenv("EMBEDDING_BASE_URL", "https://api.openai.com/v1")
