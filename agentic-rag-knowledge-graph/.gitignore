@@ -1,7 +1,6 @@
 documents
 venv
 venv_linux
-.env
 .claude
 .pytest_cache
 examples

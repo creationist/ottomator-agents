@@ -240,7 +240,69 @@ Microsoft has a significant strategic partnership with OpenAI...
 - `clear` - Clear current session
 - `exit` or `quit` - Exit the CLI
 
-### 6. Test the System
+### 6. Use the AG-UI Frontend (Optional)
+
+The AG-UI frontend provides a modern web interface powered by CopilotKit for interacting with the RAG agent.
+
+#### Install Frontend Dependencies
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+#### Start the AG-UI System
+
+**Option A: Using the startup script (recommended)**
+```bash
+# Linux/macOS
+./start_agui.sh
+
+# Windows
+start_agui.bat
+```
+
+**Option B: Manual startup**
+```bash
+# Terminal 1: Start the AG-UI backend (port 8001)
+python -m agent.agui_agent
+
+# Terminal 2: Start the Next.js frontend (port 3000)
+cd frontend
+npm run dev
+```
+
+**Option C: Concurrent startup from frontend directory**
+```bash
+cd frontend
+npm run dev:all
+```
+
+Then open http://localhost:3000 in your browser.
+
+#### AG-UI Frontend Features
+
+- **Shared State**: Real-time sync between backend agent and frontend UI
+- **Vector Results View**: Displays retrieved document chunks with similarity scores
+- **Graph Facts View**: Shows knowledge graph facts with temporal metadata
+- **Search History**: Tracks recent queries
+- **Interactive Chat**: CopilotKit-powered sidebar for conversing with the agent
+
+#### Architecture
+
+```
+Browser (3000) → CopilotKit → AG-UI Client → AG-UI Agent (8001)
+                                                    ↓
+                                          +--------+--------+
+                                          |        |        |
+                                     Vector    Graph    Hybrid
+                                     Search   Search   Search
+```
+
+The original FastAPI server on port 8000/8058 remains available for direct API access.
+
+### 7. Test the System
 
 #### Health Check
 ```bash
@@ -331,15 +393,24 @@ Visit http://localhost:8058/docs for interactive API documentation once the serv
 agentic-rag-knowledge-graph/
 ├── agent/                  # AI agent and API
 │   ├── agent.py           # Main Pydantic AI agent
+│   ├── agui_agent.py      # AG-UI enabled agent with shared state
 │   ├── api.py             # FastAPI application
 │   ├── providers.py       # LLM provider abstraction
 │   └── models.py          # Data models
+├── frontend/              # AG-UI React frontend
+│   ├── src/app/           # Next.js app router pages
+│   │   ├── page.tsx       # Knowledge Graph Explorer UI
+│   │   ├── layout.tsx     # CopilotKit provider
+│   │   └── api/copilotkit/route.ts  # AG-UI proxy
+│   └── package.json       # Frontend dependencies
 ├── ingestion/             # Document processing
 │   ├── ingest.py         # Main ingestion pipeline
 │   ├── chunker.py        # Semantic chunking
 │   └── embedder.py       # Embedding generation
 ├── sql/                   # Database schema
 ├── documents/             # Your markdown files
+├── start_agui.sh          # AG-UI startup script (Linux/macOS)
+├── start_agui.bat         # AG-UI startup script (Windows)
 └── tests/                # Comprehensive test suite
 ```
 
