@@ -253,3 +253,88 @@ class HealthStatus(BaseModel):
     llm_connection: bool
     version: str
     timestamp: datetime
+
+
+# =============================================================================
+# Content Generation Models
+# =============================================================================
+
+class ContentTypeEnum(str, Enum):
+    """Content type enumeration."""
+    MONTHLY_GENERAL = "monthly_general"
+    MONTHLY_PERSONAL = "monthly_personal"
+    MOON_REFLECTION = "moon_reflection"
+
+
+class BirthData(BaseModel):
+    """Birth data for creating user profile."""
+    birth_datetime: datetime = Field(..., description="Birth date and time with timezone")
+    latitude: float = Field(..., ge=-90, le=90, description="Birth location latitude")
+    longitude: float = Field(..., ge=-180, le=180, description="Birth location longitude")
+    location_name: Optional[str] = Field(None, description="Birth location name (optional)")
+
+
+class UserProfileRequest(BaseModel):
+    """Request to create/update user profile."""
+    user_id: str = Field(..., description="User identifier")
+    birth_data: BirthData
+
+
+class UserProfileResponse(BaseModel):
+    """User astrological profile response."""
+    user_id: str
+    sun_sign: str
+    moon_sign: str
+    rising_sign: str
+    birth_datetime: datetime
+    birth_location: Optional[str] = None
+    natal_positions: Dict[str, Any] = Field(default_factory=dict)
+    chart_computed_at: Optional[datetime] = None
+
+
+class ContentGenerateRequest(BaseModel):
+    """Request to generate content."""
+    content_type: ContentTypeEnum
+    user_id: Optional[str] = Field(None, description="User ID (required for personalized content)")
+    year: Optional[int] = Field(None, description="Year for monthly content")
+    month: Optional[int] = Field(None, ge=1, le=12, description="Month for monthly content")
+    force_refresh: bool = Field(False, description="Bypass cache and regenerate")
+
+
+class ContentResponse(BaseModel):
+    """Generated content response."""
+    content_type: str
+    content: str
+    user_id: Optional[str] = None
+    valid_from: datetime
+    valid_until: datetime
+    from_cache: bool = False
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class BatchGenerateRequest(BaseModel):
+    """Request for batch content generation."""
+    content_type: ContentTypeEnum
+    user_ids: Optional[List[str]] = Field(None, description="User IDs (None = all users)")
+    year: Optional[int] = Field(None, description="Year for monthly content")
+    month: Optional[int] = Field(None, ge=1, le=12, description="Month for monthly content")
+
+
+class BatchJobStatusResponse(BaseModel):
+    """Status of a batch generation job."""
+    job_id: str
+    job_type: str
+    status: str
+    total_users: int
+    processed_users: int
+    successful: int = 0
+    failed: int = 0
+    errors: List[Dict[str, Any]] = Field(default_factory=list)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class MonthlyContentResponse(BaseModel):
+    """All monthly content for a user."""
+    general: Optional[ContentResponse] = None
+    personal: Optional[ContentResponse] = None

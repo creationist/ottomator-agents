@@ -37,7 +37,17 @@ from .models import (
     StreamDelta,
     ErrorResponse,
     HealthStatus,
-    ToolCall
+    ToolCall,
+    # Content generation models
+    ContentTypeEnum,
+    BirthData,
+    UserProfileRequest,
+    UserProfileResponse,
+    ContentGenerateRequest,
+    ContentResponse,
+    BatchGenerateRequest,
+    BatchJobStatusResponse,
+    MonthlyContentResponse,
 )
 from .tools import (
     vector_search_tool,
@@ -659,6 +669,372 @@ async def get_session_info(session_id: str):
         raise
     except Exception as e:
         logger.error(f"Session retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Content Generation Endpoints
+# =============================================================================
+
+# Lazy initialization for content services
+_content_services = {}
+
+async def get_content_services():
+    """Get or initialize content services."""
+    global _content_services
+    
+    if not _content_services:
+        try:
+            from content.content_types import ContentType
+            from content.user_profile import UserProfileService
+            from content.transit_service import TransitService
+            from content.context_assembler import ContentContextAssembler
+            from content.generator import PersonalizedContentGenerator
+            from content.batch import BatchContentGenerator
+            from .db_utils import db_pool
+            from .providers import get_llm_client
+            
+            # Try to get ontology if available
+            try:
+                from knowledge.ontology_utils import AstrologyOntology
+                ontology = AstrologyOntology()
+            except Exception:
+                ontology = None
+            
+            user_service = UserProfileService(db_pool)
+            transit_service = TransitService()
+            assembler = ContentContextAssembler(user_service, transit_service, ontology)
+            
+            llm_client = get_llm_client()
+            generator = PersonalizedContentGenerator(assembler, llm_client, db_pool)
+            batch_generator = BatchContentGenerator(generator, user_service, db_pool)
+            
+            _content_services = {
+                "user_service": user_service,
+                "transit_service": transit_service,
+                "generator": generator,
+                "batch_generator": batch_generator,
+                "ContentType": ContentType,
+            }
+            logger.info("Content services initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize content services: {e}")
+            raise HTTPException(status_code=500, detail=f"Content services not available: {e}")
+    
+    return _content_services
+
+
+@app.post("/users/{user_id}/profile", response_model=UserProfileResponse)
+async def create_user_profile(user_id: str, birth_data: BirthData):
+    """Create or update user astrological profile."""
+    try:
+        services = await get_content_services()
+        user_service = services["user_service"]
+        
+        profile = await user_service.create_or_update_profile(
+            user_id=user_id,
+            birth_datetime=birth_data.birth_datetime,
+            birth_latitude=birth_data.latitude,
+            birth_longitude=birth_data.longitude,
+            birth_location_name=birth_data.location_name
+        )
+        
+        return UserProfileResponse(
+            user_id=profile.user_id,
+            sun_sign=profile.sun_sign,
+            moon_sign=profile.moon_sign,
+            rising_sign=profile.rising_sign,
+            birth_datetime=profile.birth_datetime,
+            birth_location=profile.birth_location_name,
+            natal_positions={
+                k: {"sign": v.sign, "degree": v.degree_in_sign, "house": v.house}
+                for k, v in profile.natal_positions.items()
+            },
+            chart_computed_at=profile.chart_computed_at
+        )
+        
+    except Exception as e:
+        logger.error(f"Profile creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/users/{user_id}/profile", response_model=UserProfileResponse)
+async def get_user_profile(user_id: str):
+    """Get user astrological profile."""
+    try:
+        services = await get_content_services()
+        user_service = services["user_service"]
+        
+        profile = await user_service.get_profile(user_id)
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        return UserProfileResponse(
+            user_id=profile.user_id,
+            sun_sign=profile.sun_sign,
+            moon_sign=profile.moon_sign,
+            rising_sign=profile.rising_sign,
+            birth_datetime=profile.birth_datetime,
+            birth_location=profile.birth_location_name,
+            natal_positions={
+                k: {"sign": v.sign, "degree": v.degree_in_sign, "house": v.house}
+                for k, v in profile.natal_positions.items()
+            },
+            chart_computed_at=profile.chart_computed_at
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Profile retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/content/generate", response_model=ContentResponse)
+async def generate_content(request: ContentGenerateRequest):
+    """Generate content (personalized if user_id provided)."""
+    try:
+        services = await get_content_services()
+        generator = services["generator"]
+        ContentType = services["ContentType"]
+        
+        # Map enum
+        content_type = ContentType(request.content_type.value)
+        
+        result = await generator.generate_content(
+            content_type=content_type,
+            user_id=request.user_id,
+            year=request.year,
+            month=request.month,
+            force_refresh=request.force_refresh
+        )
+        
+        if not result:
+            raise HTTPException(status_code=400, detail="Content generation failed")
+        
+        return ContentResponse(
+            content_type=result.content_type.value,
+            content=result.content,
+            user_id=result.user_id,
+            valid_from=result.valid_from,
+            valid_until=result.valid_until,
+            from_cache=result.from_cache,
+            metadata=result.metadata
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Content generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/content/{user_id}/monthly", response_model=MonthlyContentResponse)
+async def get_monthly_content(
+    user_id: str,
+    year: Optional[int] = None,
+    month: Optional[int] = None
+):
+    """Get all monthly content for a user."""
+    try:
+        services = await get_content_services()
+        generator = services["generator"]
+        
+        results = await generator.get_all_monthly_content(
+            user_id=user_id,
+            year=year,
+            month=month
+        )
+        
+        response = MonthlyContentResponse()
+        
+        if "general" in results:
+            r = results["general"]
+            response.general = ContentResponse(
+                content_type=r.content_type.value,
+                content=r.content,
+                user_id=r.user_id,
+                valid_from=r.valid_from,
+                valid_until=r.valid_until,
+                from_cache=r.from_cache,
+                metadata=r.metadata
+            )
+        
+        if "personal" in results:
+            r = results["personal"]
+            response.personal = ContentResponse(
+                content_type=r.content_type.value,
+                content=r.content,
+                user_id=r.user_id,
+                valid_from=r.valid_from,
+                valid_until=r.valid_until,
+                from_cache=r.from_cache,
+                metadata=r.metadata
+            )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Monthly content retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/content/{user_id}/moon-reflection", response_model=ContentResponse)
+async def get_moon_reflection(user_id: str, force_refresh: bool = False):
+    """Get moon reflection questions for a user."""
+    try:
+        services = await get_content_services()
+        generator = services["generator"]
+        ContentType = services["ContentType"]
+        
+        result = await generator.generate_content(
+            content_type=ContentType.MOON_REFLECTION,
+            user_id=user_id,
+            force_refresh=force_refresh
+        )
+        
+        if not result:
+            raise HTTPException(status_code=400, detail="Moon reflection generation failed")
+        
+        return ContentResponse(
+            content_type=result.content_type.value,
+            content=result.content,
+            user_id=result.user_id,
+            valid_from=result.valid_from,
+            valid_until=result.valid_until,
+            from_cache=result.from_cache,
+            metadata=result.metadata
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Moon reflection generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/content/batch/generate", response_model=BatchJobStatusResponse)
+async def batch_generate_content(request: BatchGenerateRequest):
+    """Batch generate content for multiple users (called by cron)."""
+    try:
+        services = await get_content_services()
+        batch_generator = services["batch_generator"]
+        ContentType = services["ContentType"]
+        
+        content_type = ContentType(request.content_type.value)
+        
+        result = await batch_generator.generate_for_all_users(
+            content_type=content_type,
+            user_ids=request.user_ids,
+            year=request.year,
+            month=request.month
+        )
+        
+        return BatchJobStatusResponse(**result.to_dict())
+        
+    except Exception as e:
+        logger.error(f"Batch generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/content/batch/monthly", response_model=Dict[str, BatchJobStatusResponse])
+async def batch_generate_monthly(
+    year: Optional[int] = None,
+    month: Optional[int] = None
+):
+    """Pre-generate all monthly content for all users."""
+    try:
+        services = await get_content_services()
+        batch_generator = services["batch_generator"]
+        
+        results = await batch_generator.generate_monthly_content(
+            year=year,
+            month=month
+        )
+        
+        return {
+            key: BatchJobStatusResponse(**result.to_dict())
+            for key, result in results.items()
+        }
+        
+    except Exception as e:
+        logger.error(f"Monthly batch generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/content/batch/status/{job_id}", response_model=BatchJobStatusResponse)
+async def get_batch_job_status(job_id: str):
+    """Check status of a batch generation job."""
+    try:
+        services = await get_content_services()
+        batch_generator = services["batch_generator"]
+        
+        result = await batch_generator.get_job_status(job_id)
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        return BatchJobStatusResponse(**result.to_dict())
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Job status retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/transits/current")
+async def get_current_transits():
+    """Get current planetary positions."""
+    try:
+        services = await get_content_services()
+        transit_service = services["transit_service"]
+        
+        transits = transit_service.get_current_transits()
+        return transits.to_dict()
+        
+    except Exception as e:
+        logger.error(f"Transit retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/transits/monthly")
+async def get_monthly_transits(
+    year: Optional[int] = None,
+    month: Optional[int] = None
+):
+    """Get major transits for a month."""
+    try:
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+        year = year or now.year
+        month = month or now.month
+        
+        services = await get_content_services()
+        transit_service = services["transit_service"]
+        
+        monthly = transit_service.get_monthly_transits(year, month)
+        
+        return {
+            "year": monthly.year,
+            "month": monthly.month,
+            "events": [
+                {
+                    "date": e.date.isoformat(),
+                    "event_type": e.event_type,
+                    "description": e.description,
+                    "planets": e.planets_involved,
+                    "importance": e.importance
+                }
+                for e in monthly.events
+            ],
+            "retrogrades": monthly.retrogrades,
+            "moon_phases": monthly.moon_phases
+        }
+        
+    except Exception as e:
+        logger.error(f"Monthly transit retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
