@@ -14,7 +14,7 @@ from ag_ui.core import StateSnapshotEvent, EventType
 from pydantic_ai.ag_ui import StateDeps
 from dotenv import load_dotenv
 
-from .prompts import SYSTEM_PROMPT
+from .prompts import SYSTEM_PROMPT, INSPIRATIONAL_CONTENT_TEMPLATE
 from .providers import get_llm_model
 from .tools import (
     generate_embedding,
@@ -22,7 +22,9 @@ from .tools import (
     GraphSearchInput,
     HybridSearchInput,
     EntityRelationshipInput,
-    EntityTimelineInput
+    EntityTimelineInput,
+    lookup_ontology_concept,
+    OntologyLookupInput
 )
 from .db_utils import (
     initialize_database,
@@ -74,6 +76,24 @@ class SearchQuery(BaseModel):
     search_type: str = Field(default="vector", description="Type of search performed")
 
 
+class ToolCall(BaseModel):
+    """Model for a tool call record."""
+    tool_name: str = Field(description="Name of the tool that was called")
+    arguments: Dict[str, Any] = Field(default_factory=dict, description="Arguments passed to the tool")
+    timestamp: str = Field(description="When the tool was called")
+    success: bool = Field(default=True, description="Whether the tool call succeeded")
+
+
+class OntologyResult(BaseModel):
+    """Model for an ontology lookup result."""
+    concept_id: str = Field(description="ID of the concept")
+    name: str = Field(description="Name of the concept")
+    concept_type: str = Field(description="Type of concept (planet, sign, house, etc.)")
+    description: str = Field(description="Description of the concept")
+    keywords: List[str] = Field(default_factory=list, description="Related keywords")
+    related_concepts: List[str] = Field(default_factory=list, description="Related concept IDs")
+
+
 class RAGState(BaseModel):
     """Shared state for the RAG agent with knowledge graph support."""
     retrieved_chunks: List[RetrievedChunk] = Field(
@@ -83,6 +103,10 @@ class RAGState(BaseModel):
     graph_results: List[GraphResult] = Field(
         default_factory=list,
         description="List of facts from knowledge graph search"
+    )
+    ontology_results: List[OntologyResult] = Field(
+        default_factory=list,
+        description="List of ontology lookup results"
     )
     current_query: Optional[SearchQuery] = Field(
         default=None,
@@ -107,6 +131,10 @@ class RAGState(BaseModel):
     graph_status: str = Field(
         default="ready",
         description="Status of the knowledge graph (ready, error)"
+    )
+    tools_used: List[ToolCall] = Field(
+        default_factory=list,
+        description="List of tools called during the current conversation turn"
     )
 
 
@@ -159,6 +187,15 @@ async def vector_search_tool(
         StateSnapshotEvent with updated retrieved chunks
     """
     await ensure_connections()
+    
+    # Track tool usage
+    tool_call = ToolCall(
+        tool_name="vector_search",
+        arguments={"query": query, "limit": limit or 10},
+        timestamp=datetime.now().isoformat(),
+        success=True
+    )
+    ctx.deps.state.tools_used.append(tool_call)
     
     # Create search query record
     search_query = SearchQuery(
@@ -229,6 +266,15 @@ async def graph_search_tool(
     """
     await ensure_connections()
     
+    # Track tool usage
+    tool_call = ToolCall(
+        tool_name="graph_search",
+        arguments={"query": query},
+        timestamp=datetime.now().isoformat(),
+        success=True
+    )
+    ctx.deps.state.tools_used.append(tool_call)
+    
     # Create search query record
     search_query = SearchQuery(
         query=query,
@@ -296,6 +342,15 @@ async def hybrid_search_tool(
         StateSnapshotEvent with hybrid search results
     """
     await ensure_connections()
+    
+    # Track tool usage
+    tool_call = ToolCall(
+        tool_name="hybrid_search",
+        arguments={"query": query, "limit": limit or 10, "text_weight": text_weight or 0.3},
+        timestamp=datetime.now().isoformat(),
+        success=True
+    )
+    ctx.deps.state.tools_used.append(tool_call)
     
     # Create search query record
     search_query = SearchQuery(
@@ -376,6 +431,15 @@ async def get_entity_relationships_tool(
     """
     await ensure_connections()
     
+    # Track tool usage
+    tool_call = ToolCall(
+        tool_name="get_entity_relationships",
+        arguments={"entity_name": entity_name, "depth": depth or 2},
+        timestamp=datetime.now().isoformat(),
+        success=True
+    )
+    ctx.deps.state.tools_used.append(tool_call)
+    
     # Create search query record
     search_query = SearchQuery(
         query=f"relationships: {entity_name}",
@@ -446,6 +510,15 @@ async def get_entity_timeline_tool(
     """
     await ensure_connections()
     
+    # Track tool usage
+    tool_call = ToolCall(
+        tool_name="get_entity_timeline",
+        arguments={"entity_name": entity_name, "start_date": start_date, "end_date": end_date},
+        timestamp=datetime.now().isoformat(),
+        success=True
+    )
+    ctx.deps.state.tools_used.append(tool_call)
+    
     # Create search query record
     search_query = SearchQuery(
         query=f"timeline: {entity_name}",
@@ -513,10 +586,19 @@ async def clear_search_results(
     Returns:
         StateSnapshotEvent with cleared results
     """
+    # Track tool usage (record before clearing)
+    tool_call = ToolCall(
+        tool_name="clear_search_results",
+        arguments={},
+        timestamp=datetime.now().isoformat(),
+        success=True
+    )
+    
     ctx.deps.state.retrieved_chunks = []
     ctx.deps.state.graph_results = []
     ctx.deps.state.current_query = None
     ctx.deps.state.selected_chunk_id = None
+    ctx.deps.state.tools_used = [tool_call]  # Reset with just this call
     
     return StateSnapshotEvent(
         type=EventType.STATE_SNAPSHOT,
@@ -539,7 +621,202 @@ async def select_chunk(
     Returns:
         StateSnapshotEvent with updated selection
     """
+    # Track tool usage
+    tool_call = ToolCall(
+        tool_name="select_chunk",
+        arguments={"chunk_id": chunk_id},
+        timestamp=datetime.now().isoformat(),
+        success=True
+    )
+    ctx.deps.state.tools_used.append(tool_call)
+    
     ctx.deps.state.selected_chunk_id = chunk_id
+    
+    return StateSnapshotEvent(
+        type=EventType.STATE_SNAPSHOT,
+        snapshot=ctx.deps.state.model_dump(),
+    )
+
+
+@rag_agent.tool
+async def lookup_astrology_concept(
+    ctx: RunContext[StateDeps[RAGState]],
+    concept: str
+) -> StateSnapshotEvent:
+    """
+    Look up an astrological concept to get its meaning and relationships.
+    
+    This tool queries the astrology ontology to provide detailed information
+    about planets, zodiac signs, houses, aspects, elements, modalities,
+    lunar phases, and astrological themes. Best for explaining astrological
+    concepts or understanding how they relate to each other.
+    
+    Available concept types:
+    - Planets: Sonne, Mond, Merkur, Venus, Mars, Jupiter, Saturn, Uranus, Neptun, Pluto, Chiron
+    - Signs: Widder, Stier, Zwillinge, Krebs, Löwe, Jungfrau, Waage, Skorpion, Schütze, Steinbock, Wassermann, Fische
+    - Houses: Erstes Haus through Zwölftes Haus
+    - Aspects: Konjunktion, Sextil, Quadrat, Trigon, Opposition
+    - Elements: Feuer, Erde, Luft, Wasser
+    - Modalities: Kardinal, Fix, Veränderlich
+    - Themes: Transformation, Heilung, Beziehungen, Karma, Spiritualität, etc.
+    
+    Args:
+        ctx: Agent runtime context with state dependencies
+        concept: Name of the astrological concept (German or English, e.g., "Venus", "Skorpion", "transformation")
+    
+    Returns:
+        StateSnapshotEvent with ontology result in state
+    """
+    # Track tool usage
+    tool_call = ToolCall(
+        tool_name="lookup_astrology_concept",
+        arguments={"concept": concept},
+        timestamp=datetime.now().isoformat(),
+        success=False
+    )
+    ctx.deps.state.tools_used.append(tool_call)
+    
+    # Create search query record
+    search_query = SearchQuery(
+        query=f"ontology: {concept}",
+        timestamp=datetime.now().isoformat(),
+        match_count=1,
+        search_type="ontology"
+    )
+    ctx.deps.state.current_query = search_query
+    ctx.deps.state.search_history.append(search_query)
+    
+    if len(ctx.deps.state.search_history) > 10:
+        ctx.deps.state.search_history = ctx.deps.state.search_history[-10:]
+    
+    try:
+        input_data = OntologyLookupInput(concept=concept)
+        result = lookup_ontology_concept(input_data)
+        
+        if result and "error" not in result:
+            # Extract related concept names (they come as dicts with id, name, type)
+            related = result.get("related_concepts", [])
+            related_names = []
+            for r in related:
+                if isinstance(r, dict):
+                    related_names.append(r.get("name", r.get("id", "")))
+                elif isinstance(r, str):
+                    related_names.append(r)
+            
+            # Convert to OntologyResult and store in state
+            ontology_result = OntologyResult(
+                concept_id=result.get("id", concept),
+                name=result.get("name", concept),
+                concept_type=result.get("type", "unknown"),
+                description=result.get("description", ""),
+                keywords=result.get("keywords", []),
+                related_concepts=related_names
+            )
+            ctx.deps.state.ontology_results = [ontology_result]
+            tool_call.success = True
+        else:
+            ctx.deps.state.ontology_results = []
+            
+    except Exception as e:
+        logger.error(f"Astrology concept lookup failed: {e}")
+        ctx.deps.state.ontology_results = []
+    
+    return StateSnapshotEvent(
+        type=EventType.STATE_SNAPSHOT,
+        snapshot=ctx.deps.state.model_dump(),
+    )
+
+
+@rag_agent.tool
+async def generate_inspirational_content(
+    ctx: RunContext[StateDeps[RAGState]],
+    topic: str,
+    user_birthday: Optional[str] = None,
+    sun_sign: Optional[str] = None,
+    moon_sign: Optional[str] = None,
+    rising_sign: Optional[str] = None,
+    additional_context: Optional[str] = None
+) -> StateSnapshotEvent:
+    """
+    Generate personalized inspirational astrology content based on user context.
+    
+    This tool creates meaningful, personalized insights by combining the user's
+    astrological context with retrieved document knowledge. Use this when the user
+    asks for personalized readings, inspirational texts, or content about their
+    specific astrological situation.
+    
+    Args:
+        ctx: Agent runtime context with state dependencies
+        topic: The theme, question, or astrological event to create content about
+               (e.g., "Neumond im Skorpion", "meine Woche", "Venus Transit")
+        user_birthday: User's birthday in any format (optional)
+        sun_sign: User's sun/zodiac sign - Sonnenzeichen (optional)
+        moon_sign: User's moon sign - Mondzeichen (optional)
+        rising_sign: User's rising/ascendant sign - Aszendent (optional)
+        additional_context: Any additional astrological info like planets, houses, aspects (optional)
+    
+    Returns:
+        StateSnapshotEvent with search results in state
+    """
+    await ensure_connections()
+    
+    # Track tool usage
+    tool_call = ToolCall(
+        tool_name="generate_inspirational_content",
+        arguments={
+            "topic": topic,
+            "sun_sign": sun_sign,
+            "moon_sign": moon_sign,
+            "rising_sign": rising_sign
+        },
+        timestamp=datetime.now().isoformat(),
+        success=False
+    )
+    ctx.deps.state.tools_used.append(tool_call)
+    
+    # Create search query record
+    search_query = SearchQuery(
+        query=f"inspirational: {topic}",
+        timestamp=datetime.now().isoformat(),
+        match_count=5,
+        search_type="inspirational"
+    )
+    ctx.deps.state.current_query = search_query
+    ctx.deps.state.search_history.append(search_query)
+    
+    if len(ctx.deps.state.search_history) > 10:
+        ctx.deps.state.search_history = ctx.deps.state.search_history[-10:]
+    
+    try:
+        # Search for relevant content about the topic
+        embedding = await generate_embedding(topic)
+        search_results = await vector_search(embedding=embedding, limit=5)
+        
+        # Update state with search results for UI display
+        if search_results:
+            chunks = [
+                RetrievedChunk(
+                    chunk_id=str(r["chunk_id"]),
+                    document_id=str(r["document_id"]),
+                    content=r["content"],
+                    similarity=r["similarity"],
+                    metadata=r.get("metadata", {}),
+                    document_title=r["document_title"],
+                    document_source=r["document_source"]
+                )
+                for r in search_results
+            ]
+            ctx.deps.state.retrieved_chunks = chunks
+        else:
+            ctx.deps.state.retrieved_chunks = []
+        
+        ctx.deps.state.knowledge_base_status = "ready"
+        tool_call.success = True
+        
+    except Exception as e:
+        logger.error(f"Inspirational content generation failed: {e}")
+        ctx.deps.state.retrieved_chunks = []
+        ctx.deps.state.knowledge_base_status = f"error: {str(e)}"
     
     return StateSnapshotEvent(
         type=EventType.STATE_SNAPSHOT,
@@ -554,52 +831,68 @@ async def rag_instructions(ctx: RunContext[StateDeps[RAGState]]) -> str:
     """
     has_chunks = len(ctx.deps.state.retrieved_chunks) > 0
     has_graph_results = len(ctx.deps.state.graph_results) > 0
+    has_ontology_results = len(ctx.deps.state.ontology_results) > 0
     current_query = ctx.deps.state.current_query
     
     base_instructions = dedent(
         f"""
-        You are an intelligent RAG assistant with access to both a vector database 
-        and a knowledge graph containing information about big tech companies and AI.
+        Du bist Nyah mit Zugang zu einer astrologischen Wissensbasis und Ontologie.
         
-        IMPORTANT INSTRUCTIONS:
-        1. Always use search tools to find relevant information before answering
-        2. Use `vector_search_tool` for semantic similarity search
-        3. Use `graph_search_tool` for facts, relationships, and entity connections
-        4. Use `hybrid_search_tool` when you want both semantic and keyword matching
-        5. Use `get_entity_relationships_tool` to explore how entities connect
-        6. Use `get_entity_timeline_tool` for temporal/historical information
-        7. Results will be displayed in the UI for the user to explore
-        8. Use `clear_search_results` when starting a new topic
+        **KRITISCH - IMMER ZUERST SUCHEN:**
+        Du MUSST bei JEDER Frage mindestens ein Tool aufrufen bevor du antwortest!
+        Antworte NIE nur aus deinem eigenen Wissen.
         
-        Knowledge Base Status: {ctx.deps.state.knowledge_base_status}
+        **Tool-Nutzung:**
+        1. `lookup_astrology_concept` - Für astrologische Konzepte (Planeten, Zeichen, Häuser, Aspekte)
+        2. `vector_search_tool` - Für semantische Suche in Dokumenten
+        3. `hybrid_search_tool` - Für kombinierte semantische + Keyword-Suche
+        4. `generate_inspirational_content` - Für personalisierte inspirierende Texte
+        5. `graph_search_tool` - Für Wissensverknüpfungen
+        
+        **Beispiele:**
+        - Frage "Was ist Merkur?" → ZUERST `lookup_astrology_concept("Merkur")` aufrufen
+        - Frage "Erzähl mir über Venus Transit" → ZUERST `vector_search_tool("Venus Transit")` aufrufen
+        - Frage "Inspirierende Botschaft für Skorpion" → `generate_inspirational_content` nutzen
+        
+        Wissensbasis Status: {ctx.deps.state.knowledge_base_status}
         Graph Status: {ctx.deps.state.graph_status}
-        Total chunks in KB: {ctx.deps.state.total_chunks_in_kb}
         """
     )
     
-    if has_chunks or has_graph_results:
-        context_info = "\n\nCURRENT STATE:"
+    if has_chunks or has_graph_results or has_ontology_results:
+        context_info = "\n\n**AKTUELLER ZUSTAND:**"
         
         if current_query:
-            context_info += f"\n- Current query: \"{current_query.query}\" ({current_query.search_type})"
+            context_info += f"\n- Aktuelle Suche: \"{current_query.query}\" ({current_query.search_type})"
+        
+        if has_ontology_results:
+            context_info += f"\n- {len(ctx.deps.state.ontology_results)} Ontologie-Ergebnis(se) gefunden"
+            context_info += "\n\n**ONTOLOGIE ERGEBNISSE (nutze diese für deine Antwort!):**"
+            for i, result in enumerate(ctx.deps.state.ontology_results, 1):
+                context_info += f"""
+            Konzept {i}: {result.name} ({result.concept_type})
+            Beschreibung: {result.description}
+            Schlüsselwörter: {', '.join(result.keywords[:5])}
+            Verwandte Konzepte: {', '.join(result.related_concepts[:5])}
+            """
         
         if has_chunks:
-            context_info += f"\n- {len(ctx.deps.state.retrieved_chunks)} chunks retrieved from vector search"
-            context_info += "\n\nTOP RETRIEVED CHUNKS:"
+            context_info += f"\n- {len(ctx.deps.state.retrieved_chunks)} Dokument-Chunks gefunden"
+            context_info += "\n\n**GEFUNDENE INHALTE:**"
             for i, chunk in enumerate(ctx.deps.state.retrieved_chunks[:3], 1):
                 context_info += f"""
-            Chunk {i} (Score: {chunk.similarity:.3f}):
-            Source: {chunk.document_title}
-            Content: {chunk.content[:200]}...
+            Chunk {i} (Ähnlichkeit: {chunk.similarity:.3f}):
+            Quelle: {chunk.document_title}
+            Inhalt: {chunk.content[:200]}...
             """
         
         if has_graph_results:
-            context_info += f"\n- {len(ctx.deps.state.graph_results)} facts from knowledge graph"
-            context_info += "\n\nTOP GRAPH FACTS:"
+            context_info += f"\n- {len(ctx.deps.state.graph_results)} Graph-Fakten gefunden"
+            context_info += "\n\n**GRAPH FAKTEN:**"
             for i, fact in enumerate(ctx.deps.state.graph_results[:3], 1):
                 context_info += f"""
-            Fact {i}: {fact.fact}
-            Valid at: {fact.valid_at or 'N/A'}
+            Fakt {i}: {fact.fact}
+            Gültig ab: {fact.valid_at or 'N/A'}
             """
         
         return base_instructions + context_info
@@ -607,9 +900,9 @@ async def rag_instructions(ctx: RunContext[StateDeps[RAGState]]) -> str:
     return base_instructions + dedent(
         """
         
-        CURRENT STATE:
-        - No results retrieved yet
-        - Use search tools to find relevant information
+        **AKTUELLER ZUSTAND:**
+        - Noch keine Suchergebnisse
+        - RUFE JETZT EIN SUCH-TOOL AUF bevor du antwortest!
         """
     )
 

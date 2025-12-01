@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 
 from .chunker import ChunkingConfig, create_chunker, DocumentChunk
 from .embedder import create_embedder
-from .graph_builder import create_graph_builder
+from .graphiti_builder import create_graph_builder
+from .ontology_builder import create_ontology_graph_builder
 
 # Import agent utilities
 try:
@@ -70,7 +71,11 @@ class DocumentIngestionPipeline:
         
         self.chunker = create_chunker(self.chunker_config)
         self.embedder = create_embedder()
-        self.graph_builder = create_graph_builder()
+        
+        # Use ontology-based graph builder (zero LLM calls) by default
+        # This uses predefined astrology ontology for entity matching
+        self.graph_builder = create_ontology_graph_builder()
+        self.use_ontology_mode = True
         
         self._initialized = False
     
@@ -81,10 +86,16 @@ class DocumentIngestionPipeline:
         
         logger.info("Initializing ingestion pipeline...")
         
-        # Initialize database connections
+        # Initialize PostgreSQL
         await initialize_database()
-        await initialize_graph()
-        await self.graph_builder.initialize()
+        
+        # Initialize graph builder (ontology mode uses direct Neo4j, not Graphiti)
+        if self.use_ontology_mode:
+            await self.graph_builder.initialize()
+            logger.info("Using ontology-based graph builder (zero LLM calls)")
+        else:
+            await initialize_graph()
+            await self.graph_builder.initialize()
         
         self._initialized = True
         logger.info("Ingestion pipeline initialized")
@@ -93,7 +104,8 @@ class DocumentIngestionPipeline:
         """Close database connections."""
         if self._initialized:
             await self.graph_builder.close()
-            await close_graph()
+            if not self.use_ontology_mode:
+                await close_graph()
             await close_database()
             self._initialized = False
     
@@ -117,26 +129,26 @@ class DocumentIngestionPipeline:
         if self.clean_before_ingest:
             await self._clean_databases()
         
-        # Find all markdown files
-        markdown_files = self._find_markdown_files()
+        # Find all document files
+        document_files = self._find_document_files()
         
-        if not markdown_files:
-            logger.warning(f"No markdown files found in {self.documents_folder}")
+        if not document_files:
+            logger.warning(f"No document files found in {self.documents_folder}")
             return []
         
-        logger.info(f"Found {len(markdown_files)} markdown files to process")
+        logger.info(f"Found {len(document_files)} document files to process")
         
         results = []
         
-        for i, file_path in enumerate(markdown_files):
+        for i, file_path in enumerate(document_files):
             try:
-                logger.info(f"Processing file {i+1}/{len(markdown_files)}: {file_path}")
+                logger.info(f"Processing file {i+1}/{len(document_files)}: {file_path}")
                 
                 result = await self._ingest_single_document(file_path)
                 results.append(result)
                 
                 if progress_callback:
-                    progress_callback(i + 1, len(markdown_files))
+                    progress_callback(i + 1, len(document_files))
                 
             except Exception as e:
                 logger.error(f"Failed to process {file_path}: {e}")
@@ -206,13 +218,23 @@ class DocumentIngestionPipeline:
         entities_extracted = 0
         if self.config.extract_entities:
             chunks = await self.graph_builder.extract_entities_from_chunks(chunks)
-            entities_extracted = sum(
-                len(chunk.metadata.get("entities", {}).get("companies", [])) +
-                len(chunk.metadata.get("entities", {}).get("technologies", [])) +
-                len(chunk.metadata.get("entities", {}).get("people", []))
-                for chunk in chunks
-            )
-            logger.info(f"Extracted {entities_extracted} entities")
+            
+            # Count entities based on extraction method
+            if self.use_ontology_mode:
+                # Ontology-based extraction stores entities in ontology_entity_count
+                entities_extracted = sum(
+                    chunk.metadata.get("ontology_entity_count", 0)
+                    for chunk in chunks
+                )
+            else:
+                # Old extraction method
+                entities_extracted = sum(
+                    len(chunk.metadata.get("entities", {}).get("companies", [])) +
+                    len(chunk.metadata.get("entities", {}).get("technologies", [])) +
+                    len(chunk.metadata.get("entities", {}).get("people", []))
+                    for chunk in chunks
+                )
+            logger.info(f"Extracted {entities_extracted} entities (zero LLM calls)" if self.use_ontology_mode else f"Extracted {entities_extracted} entities")
         
         # Generate embeddings
         embedded_chunks = await self.embedder.embed_chunks(chunks)
@@ -235,7 +257,11 @@ class DocumentIngestionPipeline:
         
         if not self.config.skip_graph_building:
             try:
-                logger.info("Building knowledge graph relationships (this may take several minutes)...")
+                if self.use_ontology_mode:
+                    logger.info("Linking chunks to ontology entities in Neo4j (zero LLM calls)...")
+                else:
+                    logger.info("Building knowledge graph relationships (this may take several minutes)...")
+                
                 graph_result = await self.graph_builder.add_document_to_graph(
                     chunks=embedded_chunks,
                     document_title=document_title,
@@ -243,10 +269,15 @@ class DocumentIngestionPipeline:
                     document_metadata=document_metadata
                 )
                 
-                relationships_created = graph_result.get("episodes_created", 0)
-                graph_errors = graph_result.get("errors", [])
+                # Get relationship count based on mode
+                if self.use_ontology_mode:
+                    relationships_created = graph_result.get("mentions_created", 0)
+                    logger.info(f"Created {relationships_created} MENTIONS relationships to ontology entities")
+                else:
+                    relationships_created = graph_result.get("episodes_created", 0)
+                    logger.info(f"Added {relationships_created} episodes to knowledge graph")
                 
-                logger.info(f"Added {relationships_created} episodes to knowledge graph")
+                graph_errors = graph_result.get("errors", [])
                 
             except Exception as e:
                 error_msg = f"Failed to add to knowledge graph: {str(e)}"
@@ -268,13 +299,13 @@ class DocumentIngestionPipeline:
             errors=graph_errors
         )
     
-    def _find_markdown_files(self) -> List[str]:
-        """Find all markdown files in the documents folder."""
+    def _find_document_files(self) -> List[str]:
+        """Find all supported document files in the documents folder."""
         if not os.path.exists(self.documents_folder):
             logger.error(f"Documents folder not found: {self.documents_folder}")
             return []
         
-        patterns = ["*.md", "*.markdown", "*.txt"]
+        patterns = ["*.md", "*.markdown", "*.txt", "*.docx"]
         files = []
         
         for pattern in patterns:
@@ -284,6 +315,11 @@ class DocumentIngestionPipeline:
     
     def _read_document(self, file_path: str) -> str:
         """Read document content from file."""
+        # Handle .docx files
+        if file_path.lower().endswith('.docx'):
+            return self._read_docx(file_path)
+        
+        # Handle text-based files (md, markdown, txt)
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return f.read()
@@ -291,6 +327,35 @@ class DocumentIngestionPipeline:
             # Try with different encoding
             with open(file_path, 'r', encoding='latin-1') as f:
                 return f.read()
+    
+    def _read_docx(self, file_path: str) -> str:
+        """Read content from a .docx file."""
+        from docx import Document
+        
+        doc = Document(file_path)
+        
+        content_parts = []
+        
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if text:
+                # Preserve heading styles as markdown headers
+                if para.style.name.startswith('Heading'):
+                    try:
+                        level = int(para.style.name.replace('Heading ', ''))
+                        text = '#' * level + ' ' + text
+                    except ValueError:
+                        pass
+                content_parts.append(text)
+        
+        # Also extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = ' | '.join(cell.text.strip() for cell in row.cells)
+                if row_text.strip():
+                    content_parts.append(row_text)
+        
+        return '\n\n'.join(content_parts)
     
     def _extract_title(self, content: str, file_path: str) -> str:
         """Extract title from document content or filename."""

@@ -322,7 +322,28 @@ async def execute_agent(
         # Run the agent
         result = await rag_agent.run(full_prompt, deps=deps)
         
-        response = result.data
+        # Debug: log result attributes
+        logger.debug(f"Agent result type: {type(result)}")
+        logger.debug(f"Agent result attributes: {[a for a in dir(result) if not a.startswith('_')]}")
+        
+        # pydantic-ai uses .output (newer) or .data (older) for the response
+        response = getattr(result, 'output', None) or getattr(result, 'data', None)
+        
+        # If neither works, try to get text from the result
+        if response is None:
+            # Try common attribute names
+            for attr in ['text', 'content', 'message', 'response']:
+                response = getattr(result, attr, None)
+                if response:
+                    break
+        
+        # Last resort: convert to string
+        if response is None:
+            response = str(result)
+            logger.warning(f"Could not extract response, using str(): {response[:200]}")
+        
+        logger.debug(f"Final response type: {type(response)}, length: {len(str(response)) if response else 0}")
+        
         tools_used = extract_tool_calls(result)
         
         # Save conversation if requested

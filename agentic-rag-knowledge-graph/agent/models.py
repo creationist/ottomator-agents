@@ -150,8 +150,11 @@ class Chunk(BaseModel):
     @classmethod
     def validate_embedding(cls, v: Optional[List[float]]) -> Optional[List[float]]:
         """Validate embedding dimensions."""
-        if v is not None and len(v) != 1536:  # OpenAI text-embedding-3-small
-            raise ValueError(f"Embedding must have 1536 dimensions, got {len(v)}")
+        # Dynamic dimension validation based on configured model
+        # Jina v3: 1024, OpenAI small: 1536, OpenAI large: 3072, etc.
+        # Skip strict validation since dimension varies by model
+        if v is not None and len(v) < 100:
+            raise ValueError(f"Embedding dimension {len(v)} seems too small, expected 384+")
         return v
 
 

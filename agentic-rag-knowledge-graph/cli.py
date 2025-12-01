@@ -31,39 +31,42 @@ class Colors:
 class AgenticRAGCLI:
     """CLI for interacting with the Agentic RAG API."""
     
-    def __init__(self, base_url: str = "http://localhost:8058"):
+    def __init__(self, base_url: str = "http://localhost:8058", stream: bool = True):
         """Initialize CLI with base URL."""
         self.base_url = base_url.rstrip('/')
         self.session_id = None
         self.user_id = "cli_user"
+        self.stream = stream
         
     def print_banner(self):
         """Print welcome banner."""
-        print(f"\n{Colors.CYAN}{Colors.BOLD}=" * 60)
-        print("🤖 Agentic RAG with Knowledge Graph CLI")
+        print(f"\n{Colors.MAGENTA}{Colors.BOLD}=" * 60)
+        print("🔮 Nyah - Astrology Knowledge Explorer CLI")
         print("=" * 60)
-        print(f"{Colors.WHITE}Connected to: {self.base_url}")
-        print(f"Type 'exit', 'quit', or Ctrl+C to exit")
-        print(f"Type 'help' for commands")
+        print(f"{Colors.WHITE}Verbunden mit: {self.base_url}")
+        print(f"Tippe 'exit', 'quit', oder Ctrl+C zum Beenden")
+        print(f"Tippe 'help' für Befehle")
         print("=" * 60 + f"{Colors.END}\n")
     
     def print_help(self):
         """Print help information."""
         help_text = f"""
-{Colors.BOLD}Available Commands:{Colors.END}
-  {Colors.GREEN}help{Colors.END}           - Show this help message
-  {Colors.GREEN}health{Colors.END}         - Check API health status
-  {Colors.GREEN}clear{Colors.END}          - Clear the session
-  {Colors.GREEN}exit/quit{Colors.END}      - Exit the CLI
+{Colors.BOLD}Verfügbare Befehle:{Colors.END}
+  {Colors.GREEN}help{Colors.END}           - Diese Hilfe anzeigen
+  {Colors.GREEN}health{Colors.END}         - API Status prüfen
+  {Colors.GREEN}clear{Colors.END}          - Session löschen
+  {Colors.GREEN}exit/quit{Colors.END}      - CLI beenden
   
-{Colors.BOLD}Usage:{Colors.END}
-  Simply type your question and press Enter to chat with the agent.
-  The agent has access to vector search, knowledge graph, and hybrid search tools.
+{Colors.BOLD}Nutzung:{Colors.END}
+  Stelle deine Frage und drücke Enter um mit Nyah zu chatten.
+  Nyah hat Zugriff auf Vektor-Suche, Wissensgraph und die Astrologie-Ontologie.
   
-{Colors.BOLD}Examples:{Colors.END}
-  - "What are Google's AI initiatives?"
-  - "Tell me about Microsoft's partnerships with OpenAI"
-  - "Compare OpenAI and Anthropic's approaches to AI safety"
+{Colors.BOLD}Beispiele:{Colors.END}
+  - "Was weißt du über Merkur?"
+  - "Erkläre mir das Sternzeichen Skorpion"
+  - "Was ist ein Trigon-Aspekt?"
+  - "Schreib mir einen inspirierenden Text über Venus"
+  - "Welche Planeten herrschen über welche Zeichen?"
 """
         print(help_text)
     
@@ -91,24 +94,43 @@ class AgenticRAGCLI:
     def format_tools_used(self, tools: List[Dict[str, Any]]) -> str:
         """Format tools used for display."""
         if not tools:
-            return f"{Colors.YELLOW}No tools used{Colors.END}"
+            return f"{Colors.YELLOW}Keine Tools verwendet{Colors.END}"
         
-        formatted = f"{Colors.MAGENTA}{Colors.BOLD}🛠 Tools Used:{Colors.END}\n"
+        # Tool icons for better visual
+        tool_icons = {
+            'vector_search': '🔍',
+            'graph_search': '🕸️',
+            'hybrid_search': '🔀',
+            'lookup_astrology_concept': '🔮',
+            'generate_inspirational_content': '✨',
+            'get_entity_relationships': '🔗',
+            'get_entity_timeline': '📅',
+        }
+        
+        formatted = f"{Colors.MAGENTA}{Colors.BOLD}🛠 Verwendete Tools:{Colors.END}\n"
         for i, tool in enumerate(tools, 1):
             tool_name = tool.get('tool_name', 'unknown')
             args = tool.get('args', {})
+            icon = tool_icons.get(tool_name, '🔧')
             
-            formatted += f"  {Colors.CYAN}{i}. {tool_name}{Colors.END}"
+            formatted += f"  {Colors.CYAN}{i}. {icon} {tool_name}{Colors.END}"
             
             # Show key arguments for context
             if args:
                 key_args = []
                 if 'query' in args:
-                    key_args.append(f"query='{args['query'][:50]}{'...' if len(args['query']) > 50 else ''}'")
+                    q = args['query']
+                    key_args.append(f"query='{q[:50]}{'...' if len(q) > 50 else ''}'")
+                if 'concept' in args:
+                    key_args.append(f"concept='{args['concept']}'")
+                if 'topic' in args:
+                    key_args.append(f"topic='{args['topic']}'")
                 if 'limit' in args:
                     key_args.append(f"limit={args['limit']}")
                 if 'entity_name' in args:
                     key_args.append(f"entity='{args['entity_name']}'")
+                if 'sun_sign' in args and args['sun_sign']:
+                    key_args.append(f"sign='{args['sun_sign']}'")
                 
                 if key_args:
                     formatted += f" ({', '.join(key_args)})"
@@ -117,8 +139,60 @@ class AgenticRAGCLI:
         
         return formatted
     
-    async def stream_chat(self, message: str) -> None:
-        """Send message to streaming chat endpoint and display response."""
+    async def chat(self, message: str) -> None:
+        """Send message and display response (uses streaming or instant based on setting)."""
+        if self.stream:
+            await self._stream_chat(message)
+        else:
+            await self._instant_chat(message)
+    
+    async def _instant_chat(self, message: str) -> None:
+        """Send message to non-streaming chat endpoint and display full response instantly."""
+        request_data = {
+            "message": message,
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "search_type": "hybrid"
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.base_url}/chat",
+                    json=request_data,
+                    headers={"Content-Type": "application/json"}
+                ) as response:
+                    
+                    if response.status != 200:
+                        error_text = await response.text()
+                        print(f"{Colors.RED}✗ API Error ({response.status}): {error_text}{Colors.END}")
+                        return
+                    
+                    data = await response.json()
+                    
+                    # Store session ID
+                    if data.get('session_id'):
+                        self.session_id = data.get('session_id')
+                    
+                    # Display response (API returns 'message' field)
+                    print(f"\n{Colors.BOLD}🤖 Assistant:{Colors.END}")
+                    print(data.get('message', data.get('response', '')))
+                    
+                    # Display tools used
+                    tools_used = data.get('tools_used', [])
+                    if tools_used:
+                        print(f"\n{self.format_tools_used(tools_used)}")
+                    
+                    # Print separator
+                    print(f"{Colors.BLUE}{'─' * 60}{Colors.END}")
+        
+        except aiohttp.ClientError as e:
+            print(f"{Colors.RED}✗ Connection error: {e}{Colors.END}")
+        except Exception as e:
+            print(f"{Colors.RED}✗ Unexpected error: {e}{Colors.END}")
+    
+    async def _stream_chat(self, message: str) -> None:
+        """Send message to streaming chat endpoint and display response with typewriter effect."""
         request_data = {
             "message": message,
             "session_id": self.session_id,
@@ -203,7 +277,7 @@ class AgenticRAGCLI:
             print(f"{Colors.RED}Cannot connect to API. Please ensure the server is running.{Colors.END}")
             return
         
-        print(f"{Colors.GREEN}Ready to chat! Ask me about tech companies and AI initiatives.{Colors.END}\n")
+        print(f"{Colors.MAGENTA}✨ Bereit! Frag mich über Astrologie, Planeten, Sternzeichen und mehr.{Colors.END}\n")
         
         try:
             while True:
@@ -230,7 +304,7 @@ class AgenticRAGCLI:
                         continue
                     
                     # Send message to agent
-                    await self.stream_chat(user_input)
+                    await self.chat(user_input)
                 
                 except KeyboardInterrupt:
                     print(f"\n{Colors.CYAN}👋 Goodbye!{Colors.END}")
@@ -262,6 +336,12 @@ def main():
         help='Port number (overrides URL port)'
     )
     
+    parser.add_argument(
+        '--no-stream',
+        action='store_true',
+        help='Display full response instantly instead of streaming (typewriter effect)'
+    )
+    
     args = parser.parse_args()
     
     # Build base URL
@@ -276,7 +356,7 @@ def main():
             base_url = f"http://localhost:{args.port}"
     
     # Create and run CLI
-    cli = AgenticRAGCLI(base_url)
+    cli = AgenticRAGCLI(base_url, stream=not args.no_stream)
     
     try:
         asyncio.run(cli.run())

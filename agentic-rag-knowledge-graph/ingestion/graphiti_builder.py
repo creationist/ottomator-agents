@@ -1,15 +1,19 @@
 """
-Knowledge graph builder for extracting entities and relationships.
+Graphiti-based knowledge graph builder for astrological entities.
+
+Uses LLM-based entity extraction via Graphiti for conversational memory.
+Extracts: planets, zodiac signs, houses, aspects, and astrological themes.
+
+For zero-LLM document ingestion, use OntologyGraphBuilder from ontology_builder.py instead.
 """
 
 import os
 import logging
-from typing import List, Dict, Any, Optional, Set, Tuple
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 import asyncio
 import re
 
-from graphiti_core import Graphiti
 from dotenv import load_dotenv
 
 from .chunker import DocumentChunk
@@ -20,7 +24,6 @@ try:
 except ImportError:
     # For direct execution or testing
     import sys
-    import os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from agent.graph_utils import GraphitiClient
 
@@ -31,7 +34,12 @@ logger = logging.getLogger(__name__)
 
 
 class GraphBuilder:
-    """Builds knowledge graph from document chunks."""
+    """
+    Builds knowledge graph from document chunks using Graphiti (LLM-based).
+    
+    Best for: Conversational memory, rich entity extraction.
+    Trade-off: Expensive (LLM API calls), slower processing.
+    """
     
     def __init__(self):
         """Initialize graph builder."""
@@ -200,50 +208,50 @@ class GraphBuilder:
     async def extract_entities_from_chunks(
         self,
         chunks: List[DocumentChunk],
-        extract_companies: bool = True,
-        extract_technologies: bool = True,
-        extract_people: bool = True
+        extract_planets: bool = True,
+        extract_signs: bool = True,
+        extract_concepts: bool = True
     ) -> List[DocumentChunk]:
         """
-        Extract entities from chunks and add to metadata.
+        Extract astrological entities from chunks and add to metadata.
         
         Args:
             chunks: List of document chunks
-            extract_companies: Whether to extract company names
-            extract_technologies: Whether to extract technology terms
-            extract_people: Whether to extract person names
+            extract_planets: Whether to extract planet names
+            extract_signs: Whether to extract zodiac sign names
+            extract_concepts: Whether to extract astrological concepts
         
         Returns:
             Chunks with entity metadata added
         """
-        logger.info(f"Extracting entities from {len(chunks)} chunks")
+        logger.info(f"Extracting astrological entities from {len(chunks)} chunks")
         
         enriched_chunks = []
         
         for chunk in chunks:
             entities = {
-                "companies": [],
-                "technologies": [],
-                "people": [],
-                "locations": []
+                "planets": [],
+                "signs": [],
+                "houses": [],
+                "aspects": [],
+                "themes": []
             }
             
             content = chunk.content
             
-            # Extract companies
-            if extract_companies:
-                entities["companies"] = self._extract_companies(content)
+            # Extract planets
+            if extract_planets:
+                entities["planets"] = self._extract_planets(content)
             
-            # Extract technologies
-            if extract_technologies:
-                entities["technologies"] = self._extract_technologies(content)
+            # Extract zodiac signs
+            if extract_signs:
+                entities["signs"] = self._extract_zodiac_signs(content)
             
-            # Extract people
-            if extract_people:
-                entities["people"] = self._extract_people(content)
-            
-            # Extract locations
-            entities["locations"] = self._extract_locations(content)
+            # Extract astrological concepts
+            if extract_concepts:
+                entities["houses"] = self._extract_houses(content)
+                entities["aspects"] = self._extract_aspects(content)
+                entities["themes"] = self._extract_themes(content)
             
             # Create enriched chunk
             enriched_chunk = DocumentChunk(
@@ -265,89 +273,118 @@ class GraphBuilder:
             
             enriched_chunks.append(enriched_chunk)
         
-        logger.info("Entity extraction complete")
+        logger.info("Astrological entity extraction complete")
         return enriched_chunks
     
-    def _extract_companies(self, text: str) -> List[str]:
-        """Extract company names from text."""
-        # Known tech companies (extend this list as needed)
-        tech_companies = {
-            "Google", "Microsoft", "Apple", "Amazon", "Meta", "Facebook",
-            "Tesla", "OpenAI", "Anthropic", "Nvidia", "Intel", "AMD",
-            "IBM", "Oracle", "Salesforce", "Adobe", "Netflix", "Uber",
-            "Airbnb", "Spotify", "Twitter", "LinkedIn", "Snapchat",
-            "TikTok", "ByteDance", "Baidu", "Alibaba", "Tencent",
-            "Samsung", "Sony", "Huawei", "Xiaomi", "DeepMind"
+    def _extract_planets(self, text: str) -> List[str]:
+        """Extract planet names from text (German and English)."""
+        planets = {
+            # German names
+            "Sonne", "Mond", "Merkur", "Venus", "Mars", "Jupiter", 
+            "Saturn", "Uranus", "Neptun", "Pluto", "Chiron",
+            # English names
+            "Sun", "Moon", "Mercury", "Neptune",
+            # Lunar nodes
+            "Nordknoten", "Südknoten", "North Node", "South Node",
+            "Mondknoten"
         }
         
-        found_companies = set()
+        found_planets = set()
         text_lower = text.lower()
         
-        for company in tech_companies:
-            # Case-insensitive search with word boundaries
-            pattern = r'\b' + re.escape(company.lower()) + r'\b'
+        for planet in planets:
+            pattern = r'\b' + re.escape(planet.lower()) + r'\b'
             if re.search(pattern, text_lower):
-                found_companies.add(company)
+                found_planets.add(planet)
         
-        return list(found_companies)
+        return list(found_planets)
     
-    def _extract_technologies(self, text: str) -> List[str]:
-        """Extract technology terms from text."""
-        tech_terms = {
-            "AI", "artificial intelligence", "machine learning", "ML",
-            "deep learning", "neural network", "LLM", "large language model",
-            "GPT", "transformer", "NLP", "natural language processing",
-            "computer vision", "reinforcement learning", "generative AI",
-            "foundation model", "multimodal", "chatbot", "API",
-            "cloud computing", "edge computing", "quantum computing",
-            "blockchain", "cryptocurrency", "IoT", "5G", "AR", "VR",
-            "autonomous vehicles", "robotics", "automation"
+    def _extract_zodiac_signs(self, text: str) -> List[str]:
+        """Extract zodiac sign names from text (German and English)."""
+        signs = {
+            # German names
+            "Widder", "Stier", "Zwillinge", "Krebs", "Löwe", "Jungfrau",
+            "Waage", "Skorpion", "Schütze", "Steinbock", "Wassermann", "Fische",
+            # English names
+            "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+            "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
         }
         
-        found_terms = set()
+        found_signs = set()
         text_lower = text.lower()
         
-        for term in tech_terms:
-            if term.lower() in text_lower:
-                found_terms.add(term)
+        for sign in signs:
+            pattern = r'\b' + re.escape(sign.lower()) + r'\b'
+            if re.search(pattern, text_lower):
+                found_signs.add(sign)
         
-        return list(found_terms)
+        return list(found_signs)
     
-    def _extract_people(self, text: str) -> List[str]:
-        """Extract person names from text."""
-        # Known tech leaders (extend this list as needed)
-        tech_leaders = {
-            "Elon Musk", "Jeff Bezos", "Tim Cook", "Satya Nadella",
-            "Sundar Pichai", "Mark Zuckerberg", "Sam Altman",
-            "Dario Amodei", "Daniela Amodei", "Jensen Huang",
-            "Bill Gates", "Larry Page", "Sergey Brin", "Jack Dorsey",
-            "Reed Hastings", "Marc Benioff", "Andy Jassy"
+    def _extract_houses(self, text: str) -> List[str]:
+        """Extract astrological house references from text."""
+        houses = {
+            "erstes Haus", "zweites Haus", "drittes Haus", "viertes Haus",
+            "fünftes Haus", "sechstes Haus", "siebtes Haus", "achtes Haus",
+            "neuntes Haus", "zehntes Haus", "elftes Haus", "zwölftes Haus",
+            "1. Haus", "2. Haus", "3. Haus", "4. Haus", "5. Haus", "6. Haus",
+            "7. Haus", "8. Haus", "9. Haus", "10. Haus", "11. Haus", "12. Haus",
+            "Aszendent", "Deszendent", "Medium Coeli", "MC", "Imum Coeli", "IC"
         }
         
-        found_people = set()
+        found_houses = set()
+        text_lower = text.lower()
         
-        for person in tech_leaders:
-            if person in text:
-                found_people.add(person)
+        for house in houses:
+            if house.lower() in text_lower:
+                found_houses.add(house)
         
-        return list(found_people)
+        return list(found_houses)
     
-    def _extract_locations(self, text: str) -> List[str]:
-        """Extract location names from text."""
-        locations = {
-            "Silicon Valley", "San Francisco", "Seattle", "Austin",
-            "New York", "Boston", "London", "Tel Aviv", "Singapore",
-            "Beijing", "Shanghai", "Tokyo", "Seoul", "Bangalore",
-            "Mountain View", "Cupertino", "Redmond", "Menlo Park"
+    def _extract_aspects(self, text: str) -> List[str]:
+        """Extract astrological aspect names from text."""
+        aspects = {
+            "Konjunktion", "Sextil", "Quadrat", "Trigon", "Opposition",
+            "Halbsextil", "Quinkunx", "Quincunx",
+            "Conjunction", "Sextile", "Square", "Trine"
         }
         
-        found_locations = set()
+        found_aspects = set()
+        text_lower = text.lower()
         
-        for location in locations:
-            if location in text:
-                found_locations.add(location)
+        for aspect in aspects:
+            pattern = r'\b' + re.escape(aspect.lower()) + r'\b'
+            if re.search(pattern, text_lower):
+                found_aspects.add(aspect)
         
-        return list(found_locations)
+        return list(found_aspects)
+    
+    def _extract_themes(self, text: str) -> List[str]:
+        """Extract astrological themes and concepts from text."""
+        themes = {
+            # Life themes (German)
+            "Transformation", "Heilung", "Beziehung", "Partnerschaft",
+            "Kreativität", "Spiritualität", "Karma", "Berufung",
+            "Familie", "Kommunikation", "Finanzen", "Gesundheit",
+            # Concepts
+            "Rückläufigkeit", "Retrograde", "Vollmond", "Neumond",
+            "Zunehmender Mond", "Abnehmender Mond",
+            # Elements & modalities
+            "Feuer", "Erde", "Luft", "Wasser",
+            "Kardinal", "Fix", "Veränderlich",
+            # Additional concepts
+            "Horoskop", "Geburtshoroskop", "Transit", "Synastrie",
+            "Aspekt", "Planetenstellung", "Tierkreis"
+        }
+        
+        found_themes = set()
+        text_lower = text.lower()
+        
+        for theme in themes:
+            pattern = r'\b' + re.escape(theme.lower()) + r'\b'
+            if re.search(pattern, text_lower):
+                found_themes.add(theme)
+        
+        return list(found_themes)
     
     async def clear_graph(self):
         """Clear all data from the knowledge graph."""
@@ -360,54 +397,81 @@ class GraphBuilder:
 
 
 class SimpleEntityExtractor:
-    """Simple rule-based entity extractor as fallback."""
+    """Simple rule-based entity extractor for astrology content."""
     
     def __init__(self):
-        """Initialize extractor."""
-        self.company_patterns = [
-            r'\b(?:Google|Microsoft|Apple|Amazon|Meta|Facebook|Tesla|OpenAI)\b',
-            r'\b\w+\s+(?:Inc|Corp|Corporation|Ltd|Limited|AG|SE)\b'
+        """Initialize extractor with astrology patterns."""
+        # Planet patterns (German and English)
+        self.planet_patterns = [
+            r'\b(?:Sonne|Mond|Merkur|Venus|Mars|Jupiter|Saturn|Uranus|Neptun|Pluto|Chiron)\b',
+            r'\b(?:Sun|Moon|Mercury|Neptune)\b',
+            r'\b(?:Nordknoten|Südknoten|Mondknoten)\b'
         ]
         
-        self.tech_patterns = [
-            r'\b(?:AI|artificial intelligence|machine learning|ML|deep learning)\b',
-            r'\b(?:neural network|transformer|GPT|LLM|NLP)\b',
-            r'\b(?:cloud computing|API|blockchain|IoT|5G)\b'
+        # Zodiac sign patterns (German and English)
+        self.sign_patterns = [
+            r'\b(?:Widder|Stier|Zwillinge|Krebs|Löwe|Jungfrau|Waage|Skorpion|Schütze|Steinbock|Wassermann|Fische)\b',
+            r'\b(?:Aries|Taurus|Gemini|Cancer|Leo|Virgo|Libra|Scorpio|Sagittarius|Capricorn|Aquarius|Pisces)\b'
+        ]
+        
+        # Aspect patterns
+        self.aspect_patterns = [
+            r'\b(?:Konjunktion|Sextil|Quadrat|Trigon|Opposition|Quinkunx)\b',
+            r'\b(?:Conjunction|Sextile|Square|Trine)\b'
+        ]
+        
+        # Theme patterns
+        self.theme_patterns = [
+            r'\b(?:Transformation|Heilung|Karma|Spiritualität|Kreativität)\b',
+            r'\b(?:Vollmond|Neumond|Rückläufigkeit|Retrograde)\b',
+            r'\b(?:Feuer|Erde|Luft|Wasser)(?:zeichen)?\b'
         ]
     
     def extract_entities(self, text: str) -> Dict[str, List[str]]:
-        """Extract entities using patterns."""
+        """Extract astrological entities using patterns."""
         entities = {
-            "companies": [],
-            "technologies": []
+            "planets": [],
+            "signs": [],
+            "aspects": [],
+            "themes": []
         }
         
-        # Extract companies
-        for pattern in self.company_patterns:
+        # Extract planets
+        for pattern in self.planet_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
-            entities["companies"].extend(matches)
+            entities["planets"].extend(matches)
         
-        # Extract technologies
-        for pattern in self.tech_patterns:
+        # Extract zodiac signs
+        for pattern in self.sign_patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
-            entities["technologies"].extend(matches)
+            entities["signs"].extend(matches)
         
-        # Remove duplicates and clean up
-        entities["companies"] = list(set(entities["companies"]))
-        entities["technologies"] = list(set(entities["technologies"]))
+        # Extract aspects
+        for pattern in self.aspect_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            entities["aspects"].extend(matches)
+        
+        # Extract themes
+        for pattern in self.theme_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            entities["themes"].extend(matches)
+        
+        # Remove duplicates
+        for key in entities:
+            entities[key] = list(set(entities[key]))
         
         return entities
 
 
 # Factory function
 def create_graph_builder() -> GraphBuilder:
-    """Create graph builder instance."""
+    """Create Graphiti-based graph builder (LLM-heavy, use for conversational memory)."""
     return GraphBuilder()
 
 
 # Example usage
 async def main():
-    """Example usage of the graph builder."""
+    """Example usage of the graph builder with astrology content."""
     from .chunker import ChunkingConfig, create_chunker
     
     # Create chunker and graph builder
@@ -416,21 +480,25 @@ async def main():
     graph_builder = create_graph_builder()
     
     sample_text = """
-    Google's DeepMind has made significant breakthroughs in artificial intelligence,
-    particularly in areas like protein folding prediction with AlphaFold and
-    game-playing AI with AlphaGo. The company continues to invest heavily in
-    transformer architectures and large language models.
+    Venus im Stier bringt eine Zeit der Sinnlichkeit und Genussfreude. Diese 
+    Planetenstellung verstärkt das Bedürfnis nach Sicherheit und materiellen 
+    Werten. Beziehungen werden stabiler, aber auch besitzergreifender.
     
-    Microsoft's partnership with OpenAI has positioned them as a leader in
-    the generative AI space. Sam Altman's OpenAI has developed GPT models
-    that Microsoft integrates into Office 365 and Azure cloud services.
+    Der Vollmond im Skorpion bildet eine Opposition zur Sonne im Stier und 
+    bringt tiefe Transformation. Emotionen kommen an die Oberfläche, und 
+    Heilung auf seelischer Ebene wird möglich. Das achte Haus wird aktiviert,
+    was Themen wie Intimität und gemeinsame Ressourcen betont.
+    
+    Bei Merkur rückläufig sollte man besonders auf die Kommunikation achten.
+    Missverständnisse können leichter entstehen, aber es ist eine gute Zeit
+    für Reflexion und Überarbeitung alter Projekte.
     """
     
     # Chunk the document
     chunks = chunker.chunk_document(
         content=sample_text,
-        title="AI Company Developments",
-        source="example.md"
+        title="Astrologische Einflüsse",
+        source="astro_example.md"
     )
     
     print(f"Created {len(chunks)} chunks")
@@ -445,9 +513,9 @@ async def main():
     try:
         result = await graph_builder.add_document_to_graph(
             chunks=enriched_chunks,
-            document_title="AI Company Developments",
-            document_source="example.md",
-            document_metadata={"topic": "AI", "date": "2024"}
+            document_title="Astrologische Einflüsse",
+            document_source="astro_example.md",
+            document_metadata={"topic": "Astrologie", "date": "2024"}
         )
         
         print(f"Graph building result: {result}")
@@ -461,3 +529,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

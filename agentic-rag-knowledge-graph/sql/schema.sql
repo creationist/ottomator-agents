@@ -1,3 +1,8 @@
+-- =============================================================================
+-- Schema for Agentic RAG with Knowledge Graph
+-- Supports: Ollama nomic-embed-text (768), OpenAI (1536/3072)
+-- =============================================================================
+
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -11,6 +16,9 @@ DROP INDEX IF EXISTS idx_chunks_document_id;
 DROP INDEX IF EXISTS idx_documents_metadata;
 DROP INDEX IF EXISTS idx_chunks_content_trgm;
 
+-- =============================================================================
+-- Documents table
+-- =============================================================================
 CREATE TABLE documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title TEXT NOT NULL,
@@ -24,18 +32,25 @@ CREATE TABLE documents (
 CREATE INDEX idx_documents_metadata ON documents USING GIN (metadata);
 CREATE INDEX idx_documents_created_at ON documents (created_at DESC);
 
+-- =============================================================================
+-- Chunks table with embeddings
+-- Default: 768 dimensions for Ollama nomic-embed-text
+-- To change dimension: ALTER TABLE chunks ALTER COLUMN embedding TYPE vector(NEW_DIM);
+-- =============================================================================
 CREATE TABLE chunks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    embedding vector(768),
+    embedding vector(768),  -- Ollama nomic-embed-text
     chunk_index INTEGER NOT NULL,
     metadata JSONB DEFAULT '{}',
     token_count INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_chunks_embedding ON chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 1);
+-- Use HNSW index for better performance (recommended for production)
+-- Note: ivfflat requires training data, HNSW works immediately
+CREATE INDEX idx_chunks_embedding ON chunks USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX idx_chunks_document_id ON chunks (document_id);
 CREATE INDEX idx_chunks_chunk_index ON chunks (document_id, chunk_index);
 CREATE INDEX idx_chunks_content_trgm ON chunks USING GIN (content gin_trgm_ops);
@@ -63,6 +78,10 @@ CREATE TABLE messages (
 
 CREATE INDEX idx_messages_session_id ON messages (session_id, created_at);
 
+-- =============================================================================
+-- Search Functions (768 dimensions for Ollama nomic-embed-text)
+-- =============================================================================
+
 CREATE OR REPLACE FUNCTION match_chunks(
     query_embedding vector(768),
     match_count INT DEFAULT 10
@@ -71,7 +90,7 @@ RETURNS TABLE (
     chunk_id UUID,
     document_id UUID,
     content TEXT,
-    similarity FLOAT,
+    similarity DOUBLE PRECISION,
     metadata JSONB,
     document_title TEXT,
     document_source TEXT
@@ -84,7 +103,7 @@ BEGIN
         c.id AS chunk_id,
         c.document_id,
         c.content,
-        1 - (c.embedding <=> query_embedding) AS similarity,
+        (1 - (c.embedding <=> query_embedding))::DOUBLE PRECISION AS similarity,
         c.metadata,
         d.title AS document_title,
         d.source AS document_source
@@ -106,9 +125,9 @@ RETURNS TABLE (
     chunk_id UUID,
     document_id UUID,
     content TEXT,
-    combined_score FLOAT,
-    vector_similarity FLOAT,
-    text_similarity FLOAT,
+    combined_score DOUBLE PRECISION,
+    vector_similarity DOUBLE PRECISION,
+    text_similarity DOUBLE PRECISION,
     metadata JSONB,
     document_title TEXT,
     document_source TEXT
@@ -122,7 +141,7 @@ BEGIN
             c.id AS chunk_id,
             c.document_id,
             c.content,
-            1 - (c.embedding <=> query_embedding) AS vector_sim,
+            (1 - (c.embedding <=> query_embedding))::DOUBLE PRECISION AS vector_sim,
             c.metadata,
             d.title AS doc_title,
             d.source AS doc_source
@@ -135,21 +154,22 @@ BEGIN
             c.id AS chunk_id,
             c.document_id,
             c.content,
-            ts_rank_cd(to_tsvector('english', c.content), plainto_tsquery('english', query_text)) AS text_sim,
+            -- Use German language config for better German text search
+            ts_rank_cd(to_tsvector('german', c.content), plainto_tsquery('german', query_text))::DOUBLE PRECISION AS text_sim,
             c.metadata,
             d.title AS doc_title,
             d.source AS doc_source
         FROM chunks c
         JOIN documents d ON c.document_id = d.id
-        WHERE to_tsvector('english', c.content) @@ plainto_tsquery('english', query_text)
+        WHERE to_tsvector('german', c.content) @@ plainto_tsquery('german', query_text)
     )
     SELECT 
         COALESCE(v.chunk_id, t.chunk_id) AS chunk_id,
         COALESCE(v.document_id, t.document_id) AS document_id,
         COALESCE(v.content, t.content) AS content,
-        (COALESCE(v.vector_sim, 0) * (1 - text_weight) + COALESCE(t.text_sim, 0) * text_weight) AS combined_score,
-        COALESCE(v.vector_sim, 0) AS vector_similarity,
-        COALESCE(t.text_sim, 0) AS text_similarity,
+        (COALESCE(v.vector_sim, 0::DOUBLE PRECISION) * (1 - text_weight) + COALESCE(t.text_sim, 0::DOUBLE PRECISION) * text_weight)::DOUBLE PRECISION AS combined_score,
+        COALESCE(v.vector_sim, 0::DOUBLE PRECISION) AS vector_similarity,
+        COALESCE(t.text_sim, 0::DOUBLE PRECISION) AS text_similarity,
         COALESCE(v.metadata, t.metadata) AS metadata,
         COALESCE(v.doc_title, t.doc_title) AS document_title,
         COALESCE(v.doc_source, t.doc_source) AS document_source

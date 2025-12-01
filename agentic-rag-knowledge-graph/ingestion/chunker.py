@@ -350,7 +350,7 @@ class SimpleChunker:
         """Initialize simple chunker."""
         self.config = config
     
-    def chunk_document(
+    async def chunk_document(
         self,
         content: str,
         title: str,

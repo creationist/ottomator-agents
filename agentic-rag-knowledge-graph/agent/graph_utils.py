@@ -15,6 +15,7 @@ from graphiti_core.utils.maintenance.graph_data_operations import clear_data
 from graphiti_core.llm_client.config import LLMConfig
 from graphiti_core.llm_client.openai_client import OpenAIClient
 from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
+from graphiti_core.embedder.client import EmbedderClient
 from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
 from dotenv import load_dotenv
 
@@ -22,6 +23,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# Suppress neo4j notifications about existing indexes/constraints
+# (These are INFO level "no effect" messages when using IF NOT EXISTS)
+logging.getLogger("neo4j.notifications").setLevel(logging.WARNING)
+
 
 # Help from this PR for setting up the custom clients: https://github.com/getzep/graphiti/pull/601/files
 class GraphitiClient:
@@ -58,14 +64,12 @@ class GraphitiClient:
         if not self.llm_api_key:
             raise ValueError("LLM_API_KEY or INGESTION_LLM_API_KEY environment variable not set")
         
-        # Embedding configuration
-        self.embedding_base_url = os.getenv("EMBEDDING_BASE_URL", "https://api.openai.com/v1")
-        self.embedding_api_key = os.getenv("EMBEDDING_API_KEY")
-        self.embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-        self.embedding_dimensions = int(os.getenv("VECTOR_DIMENSION", "1536"))
-        
-        if not self.embedding_api_key:
-            raise ValueError("EMBEDDING_API_KEY environment variable not set")
+        # Embedding configuration - use providers for consistency
+        from .providers import get_embedding_dimensions
+        self.embedding_base_url = os.getenv("EMBEDDING_BASE_URL", "http://localhost:11434/v1")
+        self.embedding_api_key = os.getenv("EMBEDDING_API_KEY", "ollama")  # Ollama doesn't need real key
+        self.embedding_model = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+        self.embedding_dimensions = get_embedding_dimensions()
         
         self.graphiti: Optional[Graphiti] = None
         self._initialized = False
@@ -87,7 +91,7 @@ class GraphitiClient:
             # Create OpenAI LLM client
             llm_client = OpenAIClient(config=llm_config)
             
-            # Create OpenAI embedder
+            # Create embedder - use OpenAI-compatible embedder (works with Ollama)
             embedder = OpenAIEmbedder(
                 config=OpenAIEmbedderConfig(
                     api_key=self.embedding_api_key,
@@ -332,6 +336,7 @@ class GraphitiClient:
             
             llm_client = OpenAIClient(config=llm_config)
             
+            # Create embedder - use OpenAI-compatible embedder (works with Ollama)
             embedder = OpenAIEmbedder(
                 config=OpenAIEmbedderConfig(
                     api_key=self.embedding_api_key,
@@ -447,3 +452,106 @@ async def test_graph_connection() -> bool:
     except Exception as e:
         logger.error(f"Graph connection test failed: {e}")
         return False
+
+
+# =============================================================================
+# Ontology Query Integration
+# =============================================================================
+# 
+# Direct Neo4j queries for ontology traversal are provided by the OntologyQueryClient.
+# This section re-exports those functions for convenience and consistency.
+
+try:
+    from .ontology_queries import (
+        OntologyQueryClient,
+        get_ontology_query_client,
+        close_ontology_query_client
+    )
+    
+    # Global ontology query client (lazy-initialized)
+    _ontology_client: Optional[OntologyQueryClient] = None
+    
+    async def get_ontology_client() -> OntologyQueryClient:
+        """
+        Get the ontology query client for direct Neo4j queries.
+        
+        This client provides multi-hop traversal queries against the
+        pre-seeded ontology structure.
+        
+        Returns:
+            Initialized OntologyQueryClient
+        """
+        global _ontology_client
+        if _ontology_client is None:
+            _ontology_client = await get_ontology_query_client()
+        return _ontology_client
+    
+    async def close_ontology_client():
+        """Close the ontology query client."""
+        global _ontology_client
+        if _ontology_client is not None:
+            await close_ontology_query_client()
+            _ontology_client = None
+    
+    # Convenience functions for common ontology queries
+    async def query_chunks_by_element(element: str) -> List[Dict[str, Any]]:
+        """Find chunks mentioning signs of a specific element."""
+        client = await get_ontology_client()
+        return await client.get_chunks_by_element(element)
+    
+    async def query_chunks_by_planet(planet: str) -> List[Dict[str, Any]]:
+        """Find chunks mentioning signs ruled by a planet."""
+        client = await get_ontology_client()
+        return await client.get_chunks_by_planet_rulership(planet)
+    
+    async def query_chunks_by_theme(theme: str) -> List[Dict[str, Any]]:
+        """Find chunks related to a theme."""
+        client = await get_ontology_client()
+        return await client.get_chunks_by_theme(theme)
+    
+    async def query_related_chunks(entity_id: str, max_hops: int = 2) -> List[Dict[str, Any]]:
+        """Find chunks connected through ontology relationships."""
+        client = await get_ontology_client()
+        return await client.get_related_chunks_via_ontology(entity_id, max_hops)
+    
+    async def query_co_occurring_entities(entity_id: str, min_count: int = 1) -> List[Dict[str, Any]]:
+        """Find entities that co-occur with a given entity."""
+        client = await get_ontology_client()
+        return await client.get_co_occurring_entities(entity_id, min_count)
+    
+    async def get_ontology_stats() -> Dict[str, Any]:
+        """Get statistics about the ontology graph."""
+        client = await get_ontology_client()
+        return await client.get_ontology_statistics()
+    
+    ONTOLOGY_QUERIES_AVAILABLE = True
+    logger.info("Ontology query functions available")
+    
+except ImportError as e:
+    ONTOLOGY_QUERIES_AVAILABLE = False
+    logger.warning(f"Ontology queries not available: {e}")
+    
+    # Provide stub functions that return errors
+    async def get_ontology_client():
+        raise ImportError("Ontology queries module not available")
+    
+    async def close_ontology_client():
+        pass
+    
+    async def query_chunks_by_element(element: str):
+        return {"error": "Ontology queries not available"}
+    
+    async def query_chunks_by_planet(planet: str):
+        return {"error": "Ontology queries not available"}
+    
+    async def query_chunks_by_theme(theme: str):
+        return {"error": "Ontology queries not available"}
+    
+    async def query_related_chunks(entity_id: str, max_hops: int = 2):
+        return {"error": "Ontology queries not available"}
+    
+    async def query_co_occurring_entities(entity_id: str, min_count: int = 1):
+        return {"error": "Ontology queries not available"}
+    
+    async def get_ontology_stats():
+        return {"error": "Ontology queries not available"}

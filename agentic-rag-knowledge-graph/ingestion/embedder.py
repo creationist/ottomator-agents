@@ -1,5 +1,7 @@
 """
 Document embedding generation for vector search.
+
+Supports Ollama (local) and OpenAI-compatible embedding providers.
 """
 
 import os
@@ -16,13 +18,13 @@ from .chunker import DocumentChunk
 
 # Import flexible providers
 try:
-    from ..agent.providers import get_embedding_client, get_embedding_model
+    from ..agent.providers import get_embedding_client, get_embedding_model, get_embedding_dimensions
 except ImportError:
     # For direct execution or testing
     import sys
     import os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from agent.providers import get_embedding_client, get_embedding_model
+    from agent.providers import get_embedding_client, get_embedding_model, get_embedding_dimensions
 
 # Load environment variables
 load_dotenv()
@@ -48,7 +50,7 @@ class EmbeddingGenerator:
         Initialize embedding generator.
         
         Args:
-            model: OpenAI embedding model to use
+            model: Embedding model to use (Ollama, OpenAI, etc.)
             batch_size: Number of texts to process in parallel
             max_retries: Maximum number of retry attempts
             retry_delay: Delay between retries in seconds
@@ -60,16 +62,25 @@ class EmbeddingGenerator:
         
         # Model-specific configurations
         self.model_configs = {
+            # Ollama / Local models (recommended)
+            "nomic-embed-text": {"dimensions": 768, "max_tokens": 8192},
+            "mxbai-embed-large": {"dimensions": 1024, "max_tokens": 512},
+            "all-minilm": {"dimensions": 384, "max_tokens": 256},
+            "snowflake-arctic-embed": {"dimensions": 1024, "max_tokens": 8192},
+            # OpenAI models
             "text-embedding-3-small": {"dimensions": 1536, "max_tokens": 8191},
             "text-embedding-3-large": {"dimensions": 3072, "max_tokens": 8191},
-            "text-embedding-ada-002": {"dimensions": 1536, "max_tokens": 8191}
+            "text-embedding-ada-002": {"dimensions": 1536, "max_tokens": 8191},
         }
         
         if model not in self.model_configs:
-            logger.warning(f"Unknown model {model}, using default config")
-            self.config = {"dimensions": 1536, "max_tokens": 8191}
+            # Use dynamic dimension detection
+            dimensions = get_embedding_dimensions()
+            logger.info(f"Using model {model} with {dimensions} dimensions")
+            self.config = {"dimensions": dimensions, "max_tokens": 8192}
         else:
             self.config = self.model_configs[model]
+            logger.info(f"Using model {model} with {self.config['dimensions']} dimensions")
     
     async def generate_embedding(self, text: str) -> List[float]:
         """
@@ -91,7 +102,6 @@ class EmbeddingGenerator:
                     model=self.model,
                     input=text
                 )
-                
                 return response.data[0].embedding
                 
             except RateLimitError as e:
@@ -104,7 +114,7 @@ class EmbeddingGenerator:
                 await asyncio.sleep(delay)
                 
             except APIError as e:
-                logger.error(f"OpenAI API error: {e}")
+                logger.error(f"API error: {e}")
                 if attempt == self.max_retries - 1:
                     raise
                 await asyncio.sleep(self.retry_delay)
@@ -147,7 +157,6 @@ class EmbeddingGenerator:
                     model=self.model,
                     input=processed_texts
                 )
-                
                 return [data.embedding for data in response.data]
                 
             except RateLimitError as e:
@@ -159,7 +168,7 @@ class EmbeddingGenerator:
                 await asyncio.sleep(delay)
                 
             except APIError as e:
-                logger.error(f"OpenAI API error in batch: {e}")
+                logger.error(f"API error in batch: {e}")
                 if attempt == self.max_retries - 1:
                     # Fallback to individual processing
                     return await self._process_individually(processed_texts)

@@ -1,0 +1,1055 @@
+{
+  "metadata": {
+    "domain": "astrology",
+    "language": "de",
+    "version": "1.0",
+    "description": "Umfassende deutsche Astrologie-Ontologie für RAG-Systeme",
+    "entity_count": 80,
+    "relationship_count": 150
+  },
+  "entities": [
+    {
+      "id": "sun",
+      "name": "Sonne",
+      "type": "planet",
+      "description": "Selbstausdruck, Vitalität, Ego, Lebenskraft und bewusste Identität",
+      "keywords": ["sonne", "sol", "sonnenlicht", "vitalität", "ego", "selbstausdruck", "identität"],
+      "attributes": {
+        "rules": ["leo"],
+        "exaltation": "aries",
+        "detriment": "aquarius",
+        "fall": "libra",
+        "element": null,
+        "orbital_period": "1 Jahr"
+      }
+    },
+    {
+      "id": "moon",
+      "name": "Mond",
+      "type": "planet",
+      "description": "Emotionen, Unterbewusstsein, Instinkte, Geborgenheit und seelische Bedürfnisse",
+      "keywords": ["mond", "luna", "emotionen", "gefühle", "unterbewusstsein", "instinkt", "seele", "geborgenheit"],
+      "attributes": {
+        "rules": ["cancer"],
+        "exaltation": "taurus",
+        "detriment": "capricorn",
+        "fall": "scorpio",
+        "element": null,
+        "orbital_period": "28 Tage"
+      }
+    },
+    {
+      "id": "mercury",
+      "name": "Merkur",
+      "type": "planet",
+      "description": "Kommunikation, Denken, Lernen, Austausch und Intellekt",
+      "keywords": ["merkur", "kommunikation", "denken", "lernen", "intellekt", "verstand", "sprache", "austausch"],
+      "attributes": {
+        "rules": ["gemini", "virgo"],
+        "exaltation": "virgo",
+        "detriment": ["sagittarius", "pisces"],
+        "fall": "pisces",
+        "element": null,
+        "orbital_period": "88 Tage"
+      }
+    },
+    {
+      "id": "venus",
+      "name": "Venus",
+      "type": "planet",
+      "description": "Liebe, Schönheit, Harmonie, Werte, Beziehungen und Genuss",
+      "keywords": ["venus", "liebe", "schönheit", "harmonie", "werte", "beziehung", "genuss", "kunst", "ästhetik"],
+      "attributes": {
+        "rules": ["taurus", "libra"],
+        "exaltation": "pisces",
+        "detriment": ["scorpio", "aries"],
+        "fall": "virgo",
+        "element": null,
+        "orbital_period": "225 Tage"
+      }
+    },
+    {
+      "id": "mars",
+      "name": "Mars",
+      "type": "planet",
+      "description": "Energie, Durchsetzung, Handlung, Willenskraft und Antrieb",
+      "keywords": ["mars", "energie", "durchsetzung", "handlung", "willenskraft", "antrieb", "kampf", "mut", "aggression"],
+      "attributes": {
+        "rules": ["aries", "scorpio"],
+        "exaltation": "capricorn",
+        "detriment": ["libra", "taurus"],
+        "fall": "cancer",
+        "element": null,
+        "orbital_period": "687 Tage"
+      }
+    },
+    {
+      "id": "jupiter",
+      "name": "Jupiter",
+      "type": "planet",
+      "description": "Expansion, Weisheit, Glück, Wachstum, Optimismus und Sinnsuche",
+      "keywords": ["jupiter", "expansion", "weisheit", "glück", "wachstum", "optimismus", "sinn", "fülle", "großzügigkeit"],
+      "attributes": {
+        "rules": ["sagittarius", "pisces"],
+        "exaltation": "cancer",
+        "detriment": ["gemini", "virgo"],
+        "fall": "capricorn",
+        "element": null,
+        "orbital_period": "12 Jahre"
+      }
+    },
+    {
+      "id": "saturn",
+      "name": "Saturn",
+      "type": "planet",
+      "description": "Struktur, Disziplin, Begrenzung, Verantwortung und Reife",
+      "keywords": ["saturn", "struktur", "disziplin", "begrenzung", "verantwortung", "reife", "karma", "zeit", "geduld"],
+      "attributes": {
+        "rules": ["capricorn", "aquarius"],
+        "exaltation": "libra",
+        "detriment": ["cancer", "leo"],
+        "fall": "aries",
+        "element": null,
+        "orbital_period": "29 Jahre"
+      }
+    },
+    {
+      "id": "uranus",
+      "name": "Uranus",
+      "type": "planet",
+      "description": "Revolution, Innovation, Freiheit, Originalität und plötzliche Veränderung",
+      "keywords": ["uranus", "revolution", "innovation", "freiheit", "originalität", "veränderung", "rebellion", "einzigartigkeit"],
+      "attributes": {
+        "rules": ["aquarius"],
+        "exaltation": "scorpio",
+        "detriment": "leo",
+        "fall": "taurus",
+        "element": null,
+        "orbital_period": "84 Jahre"
+      }
+    },
+    {
+      "id": "neptune",
+      "name": "Neptun",
+      "type": "planet",
+      "description": "Spiritualität, Illusion, Auflösung, Intuition und Transzendenz",
+      "keywords": ["neptun", "spiritualität", "illusion", "auflösung", "intuition", "transzendenz", "traum", "mystik", "hingabe"],
+      "attributes": {
+        "rules": ["pisces"],
+        "exaltation": "leo",
+        "detriment": "virgo",
+        "fall": "capricorn",
+        "element": null,
+        "orbital_period": "165 Jahre"
+      }
+    },
+    {
+      "id": "pluto",
+      "name": "Pluto",
+      "type": "planet",
+      "description": "Transformation, Macht, Regeneration, Tiefe und Wiedergeburt",
+      "keywords": ["pluto", "transformation", "macht", "regeneration", "tiefe", "wiedergeburt", "intensität", "wandel", "erneuerung"],
+      "attributes": {
+        "rules": ["scorpio"],
+        "exaltation": "aries",
+        "detriment": "taurus",
+        "fall": "libra",
+        "element": null,
+        "orbital_period": "248 Jahre"
+      }
+    },
+    {
+      "id": "chiron",
+      "name": "Chiron",
+      "type": "asteroid",
+      "description": "Der verwundete Heiler - Wunden, Heilung, Weisheit durch Schmerz und innere Arbeit",
+      "keywords": ["chiron", "heilung", "wunde", "heiler", "weisheit", "schmerz", "verwundung", "selbstheilung", "mentor"],
+      "attributes": {
+        "rules": null,
+        "associated_signs": ["virgo", "sagittarius"],
+        "element": null,
+        "orbital_period": "50 Jahre"
+      }
+    },
+    {
+      "id": "north_node",
+      "name": "Nordknoten",
+      "type": "lunar_node",
+      "description": "Seelenweg, Lebensaufgabe, Entwicklungsrichtung und karmisches Ziel",
+      "keywords": ["nordknoten", "nördlicher mondknoten", "lebensaufgabe", "seelenweg", "karma", "entwicklung", "zukunft", "bestimmung"],
+      "attributes": {
+        "opposite": "south_node",
+        "meaning": "Entwicklungsrichtung"
+      }
+    },
+    {
+      "id": "south_node",
+      "name": "Südknoten",
+      "type": "lunar_node",
+      "description": "Vergangenes Karma, mitgebrachte Talente, alte Muster und Komfortzone",
+      "keywords": ["südknoten", "südlicher mondknoten", "karma", "vergangenheit", "talent", "muster", "gewohnheit", "komfortzone"],
+      "attributes": {
+        "opposite": "north_node",
+        "meaning": "Karmische Vergangenheit"
+      }
+    },
+    {
+      "id": "aries",
+      "name": "Widder",
+      "type": "sign",
+      "description": "Pioniergeist, Initiative, Mut, Unabhängigkeit und Durchsetzungskraft",
+      "keywords": ["widder", "aries", "pionier", "initiative", "mut", "unabhängigkeit", "durchsetzung", "anfang", "impuls"],
+      "attributes": {
+        "element": "fire",
+        "modality": "cardinal",
+        "ruler": "mars",
+        "symbol": "♈",
+        "dates": "21. März - 19. April"
+      }
+    },
+    {
+      "id": "taurus",
+      "name": "Stier",
+      "type": "sign",
+      "description": "Beständigkeit, Sinnlichkeit, Geduld, Werte und materielle Sicherheit",
+      "keywords": ["stier", "taurus", "beständigkeit", "sinnlichkeit", "geduld", "werte", "sicherheit", "genuss", "besitz"],
+      "attributes": {
+        "element": "earth",
+        "modality": "fixed",
+        "ruler": "venus",
+        "symbol": "♉",
+        "dates": "20. April - 20. Mai"
+      }
+    },
+    {
+      "id": "gemini",
+      "name": "Zwillinge",
+      "type": "sign",
+      "description": "Kommunikation, Vielseitigkeit, Neugier, Austausch und Anpassungsfähigkeit",
+      "keywords": ["zwillinge", "gemini", "kommunikation", "vielseitigkeit", "neugier", "austausch", "anpassung", "information", "lernen"],
+      "attributes": {
+        "element": "air",
+        "modality": "mutable",
+        "ruler": "mercury",
+        "symbol": "♊",
+        "dates": "21. Mai - 20. Juni"
+      }
+    },
+    {
+      "id": "cancer",
+      "name": "Krebs",
+      "type": "sign",
+      "description": "Emotionen, Familie, Fürsorge, Geborgenheit und seelische Tiefe",
+      "keywords": ["krebs", "cancer", "emotionen", "familie", "fürsorge", "geborgenheit", "heim", "mutter", "schutz"],
+      "attributes": {
+        "element": "water",
+        "modality": "cardinal",
+        "ruler": "moon",
+        "symbol": "♋",
+        "dates": "21. Juni - 22. Juli"
+      }
+    },
+    {
+      "id": "leo",
+      "name": "Löwe",
+      "type": "sign",
+      "description": "Kreativität, Selbstausdruck, Stolz, Großzügigkeit und Lebensfreude",
+      "keywords": ["löwe", "leo", "kreativität", "selbstausdruck", "stolz", "großzügigkeit", "lebensfreude", "herz", "königlich"],
+      "attributes": {
+        "element": "fire",
+        "modality": "fixed",
+        "ruler": "sun",
+        "symbol": "♌",
+        "dates": "23. Juli - 22. August"
+      }
+    },
+    {
+      "id": "virgo",
+      "name": "Jungfrau",
+      "type": "sign",
+      "description": "Analyse, Dienst, Perfektion, Gesundheit und praktische Intelligenz",
+      "keywords": ["jungfrau", "virgo", "analyse", "dienst", "perfektion", "gesundheit", "ordnung", "detail", "heilung"],
+      "attributes": {
+        "element": "earth",
+        "modality": "mutable",
+        "ruler": "mercury",
+        "symbol": "♍",
+        "dates": "23. August - 22. September"
+      }
+    },
+    {
+      "id": "libra",
+      "name": "Waage",
+      "type": "sign",
+      "description": "Balance, Partnerschaft, Harmonie, Gerechtigkeit und Ästhetik",
+      "keywords": ["waage", "libra", "balance", "partnerschaft", "harmonie", "gerechtigkeit", "ästhetik", "diplomatie", "beziehung"],
+      "attributes": {
+        "element": "air",
+        "modality": "cardinal",
+        "ruler": "venus",
+        "symbol": "♎",
+        "dates": "23. September - 22. Oktober"
+      }
+    },
+    {
+      "id": "scorpio",
+      "name": "Skorpion",
+      "type": "sign",
+      "description": "Tiefe, Transformation, Intensität, Leidenschaft und Regeneration",
+      "keywords": ["skorpion", "scorpio", "tiefe", "transformation", "intensität", "leidenschaft", "regeneration", "macht", "geheimnis"],
+      "attributes": {
+        "element": "water",
+        "modality": "fixed",
+        "ruler": "pluto",
+        "traditional_ruler": "mars",
+        "symbol": "♏",
+        "dates": "23. Oktober - 21. November"
+      }
+    },
+    {
+      "id": "sagittarius",
+      "name": "Schütze",
+      "type": "sign",
+      "description": "Philosophie, Expansion, Optimismus, Abenteuer und Wahrheitssuche",
+      "keywords": ["schütze", "sagittarius", "philosophie", "expansion", "optimismus", "abenteuer", "wahrheit", "reise", "weisheit"],
+      "attributes": {
+        "element": "fire",
+        "modality": "mutable",
+        "ruler": "jupiter",
+        "symbol": "♐",
+        "dates": "22. November - 21. Dezember"
+      }
+    },
+    {
+      "id": "capricorn",
+      "name": "Steinbock",
+      "type": "sign",
+      "description": "Ambition, Struktur, Disziplin, Verantwortung und langfristige Ziele",
+      "keywords": ["steinbock", "capricorn", "ambition", "struktur", "disziplin", "verantwortung", "ziele", "karriere", "ausdauer"],
+      "attributes": {
+        "element": "earth",
+        "modality": "cardinal",
+        "ruler": "saturn",
+        "symbol": "♑",
+        "dates": "22. Dezember - 19. Januar"
+      }
+    },
+    {
+      "id": "aquarius",
+      "name": "Wassermann",
+      "type": "sign",
+      "description": "Innovation, Unabhängigkeit, Humanität, Originalität und Zukunftsvision",
+      "keywords": ["wassermann", "aquarius", "innovation", "unabhängigkeit", "humanität", "originalität", "zukunft", "gemeinschaft", "freiheit"],
+      "attributes": {
+        "element": "air",
+        "modality": "fixed",
+        "ruler": "uranus",
+        "traditional_ruler": "saturn",
+        "symbol": "♒",
+        "dates": "20. Januar - 18. Februar"
+      }
+    },
+    {
+      "id": "pisces",
+      "name": "Fische",
+      "type": "sign",
+      "description": "Spiritualität, Empathie, Intuition, Kreativität und universelle Liebe",
+      "keywords": ["fische", "pisces", "spiritualität", "empathie", "intuition", "kreativität", "liebe", "traum", "mitgefühl"],
+      "attributes": {
+        "element": "water",
+        "modality": "mutable",
+        "ruler": "neptune",
+        "traditional_ruler": "jupiter",
+        "symbol": "♓",
+        "dates": "19. Februar - 20. März"
+      }
+    },
+    {
+      "id": "house_1",
+      "name": "Erstes Haus",
+      "type": "house",
+      "description": "Selbst, Erscheinung, Persönlichkeit, körperliche Konstitution und Aszendent",
+      "keywords": ["erstes haus", "aszendent", "selbst", "erscheinung", "persönlichkeit", "körper", "ich", "identität"],
+      "attributes": {
+        "natural_ruler": "aries",
+        "life_area": "Selbstbild und Außenwirkung",
+        "associated_planet": "mars"
+      }
+    },
+    {
+      "id": "house_2",
+      "name": "Zweites Haus",
+      "type": "house",
+      "description": "Besitz, Werte, Ressourcen, Selbstwert und materielle Sicherheit",
+      "keywords": ["zweites haus", "besitz", "werte", "ressourcen", "selbstwert", "geld", "finanzen", "talent"],
+      "attributes": {
+        "natural_ruler": "taurus",
+        "life_area": "Materielle Sicherheit",
+        "associated_planet": "venus"
+      }
+    },
+    {
+      "id": "house_3",
+      "name": "Drittes Haus",
+      "type": "house",
+      "description": "Kommunikation, Geschwister, Nachbarschaft, Lernen und kurze Reisen",
+      "keywords": ["drittes haus", "kommunikation", "geschwister", "nachbarschaft", "lernen", "reisen", "austausch", "information"],
+      "attributes": {
+        "natural_ruler": "gemini",
+        "life_area": "Kommunikation und Umfeld",
+        "associated_planet": "mercury"
+      }
+    },
+    {
+      "id": "house_4",
+      "name": "Viertes Haus",
+      "type": "house",
+      "description": "Heim, Familie, Wurzeln, emotionale Grundlage und innere Sicherheit",
+      "keywords": ["viertes haus", "imum coeli", "ic", "heim", "familie", "wurzeln", "herkunft", "zuhause", "mutter"],
+      "attributes": {
+        "natural_ruler": "cancer",
+        "life_area": "Heimat und Familie",
+        "associated_planet": "moon"
+      }
+    },
+    {
+      "id": "house_5",
+      "name": "Fünftes Haus",
+      "type": "house",
+      "description": "Kreativität, Kinder, Romantik, Selbstausdruck und Vergnügen",
+      "keywords": ["fünftes haus", "kreativität", "kinder", "romantik", "selbstausdruck", "vergnügen", "spiel", "freude", "hobby"],
+      "attributes": {
+        "natural_ruler": "leo",
+        "life_area": "Kreativität und Freude",
+        "associated_planet": "sun"
+      }
+    },
+    {
+      "id": "house_6",
+      "name": "Sechstes Haus",
+      "type": "house",
+      "description": "Arbeit, Gesundheit, Dienst, Alltag und Routine",
+      "keywords": ["sechstes haus", "arbeit", "gesundheit", "dienst", "alltag", "routine", "pflicht", "heilung", "kollegen"],
+      "attributes": {
+        "natural_ruler": "virgo",
+        "life_area": "Gesundheit und Arbeit",
+        "associated_planet": "mercury"
+      }
+    },
+    {
+      "id": "house_7",
+      "name": "Siebtes Haus",
+      "type": "house",
+      "description": "Partnerschaft, Ehe, Verträge, offene Feinde und das Du",
+      "keywords": ["siebtes haus", "deszendent", "partnerschaft", "ehe", "verträge", "beziehung", "du", "gegenüber", "partner"],
+      "attributes": {
+        "natural_ruler": "libra",
+        "life_area": "Partnerschaften",
+        "associated_planet": "venus"
+      }
+    },
+    {
+      "id": "house_8",
+      "name": "Achtes Haus",
+      "type": "house",
+      "description": "Transformation, gemeinsame Ressourcen, Tod und Wiedergeburt, Intimität",
+      "keywords": ["achtes haus", "transformation", "ressourcen", "tod", "wiedergeburt", "intimität", "erbe", "okkultes", "tiefe"],
+      "attributes": {
+        "natural_ruler": "scorpio",
+        "life_area": "Transformation und Tiefe",
+        "associated_planet": "pluto"
+      }
+    },
+    {
+      "id": "house_9",
+      "name": "Neuntes Haus",
+      "type": "house",
+      "description": "Philosophie, Reisen, höhere Bildung, Glaube und Weltanschauung",
+      "keywords": ["neuntes haus", "philosophie", "reisen", "bildung", "glaube", "weltanschauung", "ausland", "weisheit", "expansion"],
+      "attributes": {
+        "natural_ruler": "sagittarius",
+        "life_area": "Sinnsuche und Expansion",
+        "associated_planet": "jupiter"
+      }
+    },
+    {
+      "id": "house_10",
+      "name": "Zehntes Haus",
+      "type": "house",
+      "description": "Karriere, öffentliches Ansehen, Berufung, Autorität und Lebensziele",
+      "keywords": ["zehntes haus", "medium coeli", "mc", "karriere", "ansehen", "berufung", "autorität", "ziele", "vater", "erfolg"],
+      "attributes": {
+        "natural_ruler": "capricorn",
+        "life_area": "Karriere und Berufung",
+        "associated_planet": "saturn"
+      }
+    },
+    {
+      "id": "house_11",
+      "name": "Elftes Haus",
+      "type": "house",
+      "description": "Freunde, Gruppen, Hoffnungen, Wünsche und kollektive Ziele",
+      "keywords": ["elftes haus", "freunde", "gruppen", "hoffnungen", "wünsche", "ziele", "gemeinschaft", "netzwerk", "ideale"],
+      "attributes": {
+        "natural_ruler": "aquarius",
+        "life_area": "Freundschaft und Ideale",
+        "associated_planet": "uranus"
+      }
+    },
+    {
+      "id": "house_12",
+      "name": "Zwölftes Haus",
+      "type": "house",
+      "description": "Unbewusstes, Spiritualität, Rückzug, verborgene Feinde und Transzendenz",
+      "keywords": ["zwölftes haus", "unbewusstes", "spiritualität", "rückzug", "transzendenz", "karma", "auflösung", "isolation", "träume"],
+      "attributes": {
+        "natural_ruler": "pisces",
+        "life_area": "Spiritualität und Unbewusstes",
+        "associated_planet": "neptune"
+      }
+    },
+    {
+      "id": "conjunction",
+      "name": "Konjunktion",
+      "type": "aspect",
+      "description": "0° - Verschmelzung der Energien, Intensivierung, neue Anfänge",
+      "keywords": ["konjunktion", "verbindung", "verschmelzung", "zusammen", "vereinigung", "intensiv"],
+      "attributes": {
+        "degree": 0,
+        "orb": 8,
+        "quality": "neutral",
+        "nature": "Verschmelzung"
+      }
+    },
+    {
+      "id": "sextile",
+      "name": "Sextil",
+      "type": "aspect",
+      "description": "60° - Harmonische Unterstützung, Chancen, leichte Kommunikation",
+      "keywords": ["sextil", "harmonie", "chance", "unterstützung", "gelegenheit", "talent"],
+      "attributes": {
+        "degree": 60,
+        "orb": 4,
+        "quality": "harmonisch",
+        "nature": "Unterstützend"
+      }
+    },
+    {
+      "id": "square",
+      "name": "Quadrat",
+      "type": "aspect",
+      "description": "90° - Spannung und Herausforderung, Antrieb zur Veränderung",
+      "keywords": ["quadrat", "spannung", "herausforderung", "konflikt", "antrieb", "reibung", "krise"],
+      "attributes": {
+        "degree": 90,
+        "orb": 6,
+        "quality": "spannungsreich",
+        "nature": "Herausfordernd"
+      }
+    },
+    {
+      "id": "trine",
+      "name": "Trigon",
+      "type": "aspect",
+      "description": "120° - Natürliche Harmonie, Talente, fließende Energie",
+      "keywords": ["trigon", "harmonie", "talent", "fluss", "begabung", "leichtigkeit", "geschenk"],
+      "attributes": {
+        "degree": 120,
+        "orb": 6,
+        "quality": "harmonisch",
+        "nature": "Fließend"
+      }
+    },
+    {
+      "id": "opposition",
+      "name": "Opposition",
+      "type": "aspect",
+      "description": "180° - Polarität und Bewusstwerdung, Spannung zwischen Gegensätzen",
+      "keywords": ["opposition", "polarität", "gegensatz", "bewusstsein", "spannung", "balance", "gegenüber"],
+      "attributes": {
+        "degree": 180,
+        "orb": 8,
+        "quality": "spannungsreich",
+        "nature": "Polarisierend"
+      }
+    },
+    {
+      "id": "semi_sextile",
+      "name": "Halbsextil",
+      "type": "aspect",
+      "description": "30° - Leichte Irritation, Anpassung, subtile Verbindung",
+      "keywords": ["halbsextil", "anpassung", "irritation", "subtil", "feinabstimmung"],
+      "attributes": {
+        "degree": 30,
+        "orb": 2,
+        "quality": "neutral",
+        "nature": "Anpassend"
+      }
+    },
+    {
+      "id": "quincunx",
+      "name": "Quinkunx",
+      "type": "aspect",
+      "description": "150° - Unbehagen, Anpassungsbedarf, schwierige Integration",
+      "keywords": ["quinkunx", "quincunx", "unbehagen", "anpassung", "integration", "korrektur", "gesundheit"],
+      "attributes": {
+        "degree": 150,
+        "orb": 3,
+        "quality": "herausfordernd",
+        "nature": "Anpassungsbedürftig"
+      }
+    },
+    {
+      "id": "fire",
+      "name": "Feuer",
+      "type": "element",
+      "description": "Energie, Begeisterung, Initiative, Leidenschaft und Willenskraft",
+      "keywords": ["feuer", "energie", "begeisterung", "initiative", "leidenschaft", "willenskraft", "aktion", "impuls"],
+      "attributes": {
+        "signs": ["aries", "leo", "sagittarius"],
+        "quality": "aktiv",
+        "temperament": "cholerisch"
+      }
+    },
+    {
+      "id": "earth",
+      "name": "Erde",
+      "type": "element",
+      "description": "Stabilität, Praktikabilität, Materialismus, Ausdauer und Sicherheit",
+      "keywords": ["erde", "stabilität", "praktisch", "materiell", "ausdauer", "sicherheit", "geduld", "beständig"],
+      "attributes": {
+        "signs": ["taurus", "virgo", "capricorn"],
+        "quality": "passiv",
+        "temperament": "melancholisch"
+      }
+    },
+    {
+      "id": "air",
+      "name": "Luft",
+      "type": "element",
+      "description": "Intellekt, Kommunikation, Ideen, soziale Verbindungen und Objektivität",
+      "keywords": ["luft", "intellekt", "kommunikation", "ideen", "sozial", "objektivität", "denken", "verbindung"],
+      "attributes": {
+        "signs": ["gemini", "libra", "aquarius"],
+        "quality": "aktiv",
+        "temperament": "sanguinisch"
+      }
+    },
+    {
+      "id": "water",
+      "name": "Wasser",
+      "type": "element",
+      "description": "Emotionen, Intuition, Empfindsamkeit, Tiefe und Empathie",
+      "keywords": ["wasser", "emotionen", "intuition", "empfindsamkeit", "tiefe", "empathie", "gefühl", "seele"],
+      "attributes": {
+        "signs": ["cancer", "scorpio", "pisces"],
+        "quality": "passiv",
+        "temperament": "phlegmatisch"
+      }
+    },
+    {
+      "id": "cardinal",
+      "name": "Kardinal",
+      "type": "modality",
+      "description": "Initiative, Neuanfänge, Führung und Antrieb",
+      "keywords": ["kardinal", "initiative", "anfang", "führung", "antrieb", "start", "aktion"],
+      "attributes": {
+        "signs": ["aries", "cancer", "libra", "capricorn"],
+        "quality": "initiierend",
+        "season": "Beginn der Jahreszeit"
+      }
+    },
+    {
+      "id": "fixed",
+      "name": "Fix",
+      "type": "modality",
+      "description": "Beständigkeit, Ausdauer, Stabilität und Durchhaltevermögen",
+      "keywords": ["fix", "fest", "beständigkeit", "ausdauer", "stabilität", "durchhaltevermögen", "stur"],
+      "attributes": {
+        "signs": ["taurus", "leo", "scorpio", "aquarius"],
+        "quality": "bewahrend",
+        "season": "Mitte der Jahreszeit"
+      }
+    },
+    {
+      "id": "mutable",
+      "name": "Veränderlich",
+      "type": "modality",
+      "description": "Anpassungsfähigkeit, Flexibilität, Wandel und Vielseitigkeit",
+      "keywords": ["veränderlich", "mutable", "anpassung", "flexibilität", "wandel", "vielseitigkeit"],
+      "attributes": {
+        "signs": ["gemini", "virgo", "sagittarius", "pisces"],
+        "quality": "transformierend",
+        "season": "Ende der Jahreszeit"
+      }
+    },
+    {
+      "id": "new_moon",
+      "name": "Neumond",
+      "type": "lunar_phase",
+      "description": "Neubeginn, Absichten setzen, Samen pflanzen, innere Einkehr",
+      "keywords": ["neumond", "neubeginn", "absicht", "intention", "start", "samen", "dunkelheit"],
+      "attributes": {
+        "phase_order": 1,
+        "illumination": "0%",
+        "energy": "nach innen gerichtet"
+      }
+    },
+    {
+      "id": "waxing_crescent",
+      "name": "Zunehmender Mond",
+      "type": "lunar_phase",
+      "description": "Wachstum, Aufbau, Manifestation, Energie zunehmen lassen",
+      "keywords": ["zunehmender mond", "wachstum", "aufbau", "manifestation", "entwicklung", "zunehmen"],
+      "attributes": {
+        "phase_order": 2,
+        "illumination": "1-49%",
+        "energy": "aufbauend"
+      }
+    },
+    {
+      "id": "first_quarter",
+      "name": "Erstes Viertel",
+      "type": "lunar_phase",
+      "description": "Herausforderung, Entscheidung, Handlung, Krise in der Aktion",
+      "keywords": ["erstes viertel", "halbmond", "herausforderung", "entscheidung", "handlung", "krise"],
+      "attributes": {
+        "phase_order": 3,
+        "illumination": "50%",
+        "energy": "aktiv"
+      }
+    },
+    {
+      "id": "full_moon",
+      "name": "Vollmond",
+      "type": "lunar_phase",
+      "description": "Höhepunkt, Erfüllung, Loslassen, Bewusstwerdung, Emotionen",
+      "keywords": ["vollmond", "höhepunkt", "erfüllung", "loslassen", "bewusstwerdung", "emotionen", "kulmination"],
+      "attributes": {
+        "phase_order": 4,
+        "illumination": "100%",
+        "energy": "nach außen gerichtet"
+      }
+    },
+    {
+      "id": "waning_moon",
+      "name": "Abnehmender Mond",
+      "type": "lunar_phase",
+      "description": "Loslassen, Abbau, Integration, Reflexion, Rückzug",
+      "keywords": ["abnehmender mond", "loslassen", "abbau", "integration", "reflexion", "rückzug", "abnehmen"],
+      "attributes": {
+        "phase_order": 5,
+        "illumination": "99-51%",
+        "energy": "abbauend"
+      }
+    },
+    {
+      "id": "last_quarter",
+      "name": "Letztes Viertel",
+      "type": "lunar_phase",
+      "description": "Abschluss, Neuausrichtung, Krise im Bewusstsein, Vorbereitung",
+      "keywords": ["letztes viertel", "abschluss", "neuausrichtung", "krise", "vorbereitung", "ende"],
+      "attributes": {
+        "phase_order": 6,
+        "illumination": "50%",
+        "energy": "reflektierend"
+      }
+    },
+    {
+      "id": "retrograde",
+      "name": "Rückläufigkeit",
+      "type": "concept",
+      "description": "Scheinbare Rückwärtsbewegung, Zeit für Revision, Reflexion und Neubetrachtung",
+      "keywords": ["rückläufig", "retrograde", "revision", "reflexion", "überprüfung", "wiederholung", "verzögerung"],
+      "attributes": {
+        "affected_planets": ["mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"],
+        "common_themes": ["Verzögerungen", "Kommunikationsprobleme", "Rückbesinnung", "alte Themen"]
+      }
+    },
+    {
+      "id": "mercury_retrograde",
+      "name": "Merkur rückläufig",
+      "type": "concept",
+      "description": "Kommunikationsprobleme, technische Störungen, Missverständnisse, Zeit für Revision",
+      "keywords": ["merkur rückläufig", "mercury retrograde", "kommunikation", "technik", "missverständnis", "verzögerung"],
+      "attributes": {
+        "frequency": "3-4 mal pro Jahr",
+        "duration": "ca. 3 Wochen",
+        "themes": ["Kommunikation", "Technik", "Verträge", "Reisen"]
+      }
+    },
+    {
+      "id": "transformation",
+      "name": "Transformation",
+      "type": "theme",
+      "description": "Tiefgreifender Wandel, Loslassen des Alten, Erneuerung und Wiedergeburt",
+      "keywords": ["transformation", "wandel", "veränderung", "entwicklung", "erneuerung", "wiedergeburt", "metamorphose"],
+      "attributes": {
+        "associated_planets": ["pluto"],
+        "associated_signs": ["scorpio"],
+        "associated_houses": ["house_8"]
+      }
+    },
+    {
+      "id": "healing",
+      "name": "Heilung",
+      "type": "theme",
+      "description": "Heilung auf körperlicher, emotionaler und spiritueller Ebene, Ganzwerdung",
+      "keywords": ["heilung", "gesundheit", "ganzwerdung", "selbstheilung", "therapie", "integration"],
+      "attributes": {
+        "associated_planets": ["chiron"],
+        "associated_signs": ["virgo"],
+        "associated_houses": ["house_6"]
+      }
+    },
+    {
+      "id": "relationships",
+      "name": "Beziehungen",
+      "type": "theme",
+      "description": "Zwischenmenschliche Verbindungen, Partnerschaften, Liebe und Harmonie",
+      "keywords": ["beziehung", "partnerschaft", "liebe", "verbindung", "harmonie", "ehe", "partner"],
+      "attributes": {
+        "associated_planets": ["venus"],
+        "associated_signs": ["libra", "taurus"],
+        "associated_houses": ["house_7"]
+      }
+    },
+    {
+      "id": "creativity",
+      "name": "Kreativität",
+      "type": "theme",
+      "description": "Schöpferischer Ausdruck, künstlerische Entfaltung, Selbstverwirklichung",
+      "keywords": ["kreativität", "kunst", "ausdruck", "schöpfung", "inspiration", "selbstverwirklichung"],
+      "attributes": {
+        "associated_planets": ["sun", "venus"],
+        "associated_signs": ["leo"],
+        "associated_houses": ["house_5"]
+      }
+    },
+    {
+      "id": "spirituality",
+      "name": "Spiritualität",
+      "type": "theme",
+      "description": "Spirituelle Entwicklung, Bewusstseinserweiterung, Verbindung zum Höheren",
+      "keywords": ["spiritualität", "bewusstsein", "seele", "mystik", "transzendenz", "meditation", "erleuchtung"],
+      "attributes": {
+        "associated_planets": ["neptune"],
+        "associated_signs": ["pisces"],
+        "associated_houses": ["house_12"]
+      }
+    },
+    {
+      "id": "karma",
+      "name": "Karma",
+      "type": "theme",
+      "description": "Ursache und Wirkung, vergangene Leben, Seelenlektionen und Schicksal",
+      "keywords": ["karma", "schicksal", "vergangenheit", "lektion", "seele", "ursache", "wirkung"],
+      "attributes": {
+        "associated_planets": ["saturn", "south_node"],
+        "associated_signs": ["capricorn"],
+        "associated_houses": ["house_12"]
+      }
+    },
+    {
+      "id": "vocation",
+      "name": "Berufung",
+      "type": "theme",
+      "description": "Lebensaufgabe, Karriere, öffentliches Wirken und Bestimmung",
+      "keywords": ["berufung", "karriere", "lebensaufgabe", "bestimmung", "erfolg", "anerkennung"],
+      "attributes": {
+        "associated_planets": ["saturn", "sun"],
+        "associated_signs": ["capricorn"],
+        "associated_houses": ["house_10"]
+      }
+    },
+    {
+      "id": "family",
+      "name": "Familie",
+      "type": "theme",
+      "description": "Familiäre Bindungen, Herkunft, Wurzeln und emotionale Sicherheit",
+      "keywords": ["familie", "herkunft", "wurzeln", "zuhause", "heim", "eltern", "kinder"],
+      "attributes": {
+        "associated_planets": ["moon"],
+        "associated_signs": ["cancer"],
+        "associated_houses": ["house_4"]
+      }
+    },
+    {
+      "id": "communication",
+      "name": "Kommunikation",
+      "type": "theme",
+      "description": "Austausch, Sprache, Lernen, Information und geistiger Ausdruck",
+      "keywords": ["kommunikation", "sprache", "lernen", "information", "austausch", "ausdruck", "medien"],
+      "attributes": {
+        "associated_planets": ["mercury"],
+        "associated_signs": ["gemini"],
+        "associated_houses": ["house_3"]
+      }
+    },
+    {
+      "id": "finances",
+      "name": "Finanzen",
+      "type": "theme",
+      "description": "Materielle Ressourcen, Geld, Werte und finanzielle Sicherheit",
+      "keywords": ["finanzen", "geld", "ressourcen", "werte", "besitz", "einkommen", "wohlstand"],
+      "attributes": {
+        "associated_planets": ["venus", "jupiter"],
+        "associated_signs": ["taurus"],
+        "associated_houses": ["house_2", "house_8"]
+      }
+    },
+    {
+      "id": "health",
+      "name": "Gesundheit",
+      "type": "theme",
+      "description": "Körperliche und geistige Gesundheit, Wohlbefinden und Selbstfürsorge",
+      "keywords": ["gesundheit", "wohlbefinden", "körper", "selbstfürsorge", "ernährung", "fitness"],
+      "attributes": {
+        "associated_planets": ["mercury", "chiron"],
+        "associated_signs": ["virgo"],
+        "associated_houses": ["house_6"]
+      }
+    }
+  ],
+  "relationships": [
+    {"source": "sun", "target": "leo", "type": "RULES", "description": "Die Sonne herrscht über den Löwen"},
+    {"source": "moon", "target": "cancer", "type": "RULES", "description": "Der Mond herrscht über den Krebs"},
+    {"source": "mercury", "target": "gemini", "type": "RULES", "description": "Merkur herrscht über die Zwillinge"},
+    {"source": "mercury", "target": "virgo", "type": "RULES", "description": "Merkur herrscht über die Jungfrau"},
+    {"source": "venus", "target": "taurus", "type": "RULES", "description": "Venus herrscht über den Stier"},
+    {"source": "venus", "target": "libra", "type": "RULES", "description": "Venus herrscht über die Waage"},
+    {"source": "mars", "target": "aries", "type": "RULES", "description": "Mars herrscht über den Widder"},
+    {"source": "mars", "target": "scorpio", "type": "TRADITIONAL_RULES", "description": "Mars ist traditioneller Herrscher des Skorpions"},
+    {"source": "jupiter", "target": "sagittarius", "type": "RULES", "description": "Jupiter herrscht über den Schützen"},
+    {"source": "jupiter", "target": "pisces", "type": "TRADITIONAL_RULES", "description": "Jupiter ist traditioneller Herrscher der Fische"},
+    {"source": "saturn", "target": "capricorn", "type": "RULES", "description": "Saturn herrscht über den Steinbock"},
+    {"source": "saturn", "target": "aquarius", "type": "TRADITIONAL_RULES", "description": "Saturn ist traditioneller Herrscher des Wassermanns"},
+    {"source": "uranus", "target": "aquarius", "type": "RULES", "description": "Uranus herrscht über den Wassermann"},
+    {"source": "neptune", "target": "pisces", "type": "RULES", "description": "Neptun herrscht über die Fische"},
+    {"source": "pluto", "target": "scorpio", "type": "RULES", "description": "Pluto herrscht über den Skorpion"},
+    
+    {"source": "aries", "target": "fire", "type": "HAS_ELEMENT", "description": "Widder ist ein Feuerzeichen"},
+    {"source": "leo", "target": "fire", "type": "HAS_ELEMENT", "description": "Löwe ist ein Feuerzeichen"},
+    {"source": "sagittarius", "target": "fire", "type": "HAS_ELEMENT", "description": "Schütze ist ein Feuerzeichen"},
+    {"source": "taurus", "target": "earth", "type": "HAS_ELEMENT", "description": "Stier ist ein Erdzeichen"},
+    {"source": "virgo", "target": "earth", "type": "HAS_ELEMENT", "description": "Jungfrau ist ein Erdzeichen"},
+    {"source": "capricorn", "target": "earth", "type": "HAS_ELEMENT", "description": "Steinbock ist ein Erdzeichen"},
+    {"source": "gemini", "target": "air", "type": "HAS_ELEMENT", "description": "Zwillinge ist ein Luftzeichen"},
+    {"source": "libra", "target": "air", "type": "HAS_ELEMENT", "description": "Waage ist ein Luftzeichen"},
+    {"source": "aquarius", "target": "air", "type": "HAS_ELEMENT", "description": "Wassermann ist ein Luftzeichen"},
+    {"source": "cancer", "target": "water", "type": "HAS_ELEMENT", "description": "Krebs ist ein Wasserzeichen"},
+    {"source": "scorpio", "target": "water", "type": "HAS_ELEMENT", "description": "Skorpion ist ein Wasserzeichen"},
+    {"source": "pisces", "target": "water", "type": "HAS_ELEMENT", "description": "Fische ist ein Wasserzeichen"},
+    
+    {"source": "aries", "target": "cardinal", "type": "HAS_MODALITY", "description": "Widder ist ein kardinales Zeichen"},
+    {"source": "cancer", "target": "cardinal", "type": "HAS_MODALITY", "description": "Krebs ist ein kardinales Zeichen"},
+    {"source": "libra", "target": "cardinal", "type": "HAS_MODALITY", "description": "Waage ist ein kardinales Zeichen"},
+    {"source": "capricorn", "target": "cardinal", "type": "HAS_MODALITY", "description": "Steinbock ist ein kardinales Zeichen"},
+    {"source": "taurus", "target": "fixed", "type": "HAS_MODALITY", "description": "Stier ist ein fixes Zeichen"},
+    {"source": "leo", "target": "fixed", "type": "HAS_MODALITY", "description": "Löwe ist ein fixes Zeichen"},
+    {"source": "scorpio", "target": "fixed", "type": "HAS_MODALITY", "description": "Skorpion ist ein fixes Zeichen"},
+    {"source": "aquarius", "target": "fixed", "type": "HAS_MODALITY", "description": "Wassermann ist ein fixes Zeichen"},
+    {"source": "gemini", "target": "mutable", "type": "HAS_MODALITY", "description": "Zwillinge ist ein veränderliches Zeichen"},
+    {"source": "virgo", "target": "mutable", "type": "HAS_MODALITY", "description": "Jungfrau ist ein veränderliches Zeichen"},
+    {"source": "sagittarius", "target": "mutable", "type": "HAS_MODALITY", "description": "Schütze ist ein veränderliches Zeichen"},
+    {"source": "pisces", "target": "mutable", "type": "HAS_MODALITY", "description": "Fische ist ein veränderliches Zeichen"},
+    
+    {"source": "house_1", "target": "aries", "type": "NATURAL_RULER", "description": "Widder ist natürlicher Herrscher des 1. Hauses"},
+    {"source": "house_2", "target": "taurus", "type": "NATURAL_RULER", "description": "Stier ist natürlicher Herrscher des 2. Hauses"},
+    {"source": "house_3", "target": "gemini", "type": "NATURAL_RULER", "description": "Zwillinge ist natürlicher Herrscher des 3. Hauses"},
+    {"source": "house_4", "target": "cancer", "type": "NATURAL_RULER", "description": "Krebs ist natürlicher Herrscher des 4. Hauses"},
+    {"source": "house_5", "target": "leo", "type": "NATURAL_RULER", "description": "Löwe ist natürlicher Herrscher des 5. Hauses"},
+    {"source": "house_6", "target": "virgo", "type": "NATURAL_RULER", "description": "Jungfrau ist natürlicher Herrscher des 6. Hauses"},
+    {"source": "house_7", "target": "libra", "type": "NATURAL_RULER", "description": "Waage ist natürlicher Herrscher des 7. Hauses"},
+    {"source": "house_8", "target": "scorpio", "type": "NATURAL_RULER", "description": "Skorpion ist natürlicher Herrscher des 8. Hauses"},
+    {"source": "house_9", "target": "sagittarius", "type": "NATURAL_RULER", "description": "Schütze ist natürlicher Herrscher des 9. Hauses"},
+    {"source": "house_10", "target": "capricorn", "type": "NATURAL_RULER", "description": "Steinbock ist natürlicher Herrscher des 10. Hauses"},
+    {"source": "house_11", "target": "aquarius", "type": "NATURAL_RULER", "description": "Wassermann ist natürlicher Herrscher des 11. Hauses"},
+    {"source": "house_12", "target": "pisces", "type": "NATURAL_RULER", "description": "Fische ist natürlicher Herrscher des 12. Hauses"},
+    
+    {"source": "north_node", "target": "south_node", "type": "OPPOSITE", "description": "Die Mondknoten bilden eine Achse"},
+    {"source": "chiron", "target": "healing", "type": "RELATES_TO", "description": "Chiron ist mit dem Thema Heilung verbunden"},
+    {"source": "chiron", "target": "virgo", "type": "ASSOCIATED_WITH", "description": "Chiron hat eine Affinität zur Jungfrau"},
+    {"source": "chiron", "target": "sagittarius", "type": "ASSOCIATED_WITH", "description": "Chiron hat eine Affinität zum Schützen"},
+    
+    {"source": "transformation", "target": "pluto", "type": "RELATES_TO", "description": "Transformation ist ein Pluto-Thema"},
+    {"source": "transformation", "target": "scorpio", "type": "RELATES_TO", "description": "Transformation ist ein Skorpion-Thema"},
+    {"source": "transformation", "target": "house_8", "type": "RELATES_TO", "description": "Transformation ist ein Thema des 8. Hauses"},
+    {"source": "healing", "target": "chiron", "type": "RELATES_TO", "description": "Heilung ist ein Chiron-Thema"},
+    {"source": "healing", "target": "virgo", "type": "RELATES_TO", "description": "Heilung ist ein Jungfrau-Thema"},
+    {"source": "healing", "target": "house_6", "type": "RELATES_TO", "description": "Heilung ist ein Thema des 6. Hauses"},
+    {"source": "relationships", "target": "venus", "type": "RELATES_TO", "description": "Beziehungen sind ein Venus-Thema"},
+    {"source": "relationships", "target": "libra", "type": "RELATES_TO", "description": "Beziehungen sind ein Waage-Thema"},
+    {"source": "relationships", "target": "house_7", "type": "RELATES_TO", "description": "Beziehungen sind ein Thema des 7. Hauses"},
+    {"source": "creativity", "target": "sun", "type": "RELATES_TO", "description": "Kreativität ist ein Sonnen-Thema"},
+    {"source": "creativity", "target": "leo", "type": "RELATES_TO", "description": "Kreativität ist ein Löwe-Thema"},
+    {"source": "creativity", "target": "house_5", "type": "RELATES_TO", "description": "Kreativität ist ein Thema des 5. Hauses"},
+    {"source": "spirituality", "target": "neptune", "type": "RELATES_TO", "description": "Spiritualität ist ein Neptun-Thema"},
+    {"source": "spirituality", "target": "pisces", "type": "RELATES_TO", "description": "Spiritualität ist ein Fische-Thema"},
+    {"source": "spirituality", "target": "house_12", "type": "RELATES_TO", "description": "Spiritualität ist ein Thema des 12. Hauses"},
+    {"source": "karma", "target": "saturn", "type": "RELATES_TO", "description": "Karma ist ein Saturn-Thema"},
+    {"source": "karma", "target": "south_node", "type": "RELATES_TO", "description": "Karma ist mit dem Südknoten verbunden"},
+    {"source": "karma", "target": "house_12", "type": "RELATES_TO", "description": "Karma ist ein Thema des 12. Hauses"},
+    {"source": "vocation", "target": "saturn", "type": "RELATES_TO", "description": "Berufung ist ein Saturn-Thema"},
+    {"source": "vocation", "target": "capricorn", "type": "RELATES_TO", "description": "Berufung ist ein Steinbock-Thema"},
+    {"source": "vocation", "target": "house_10", "type": "RELATES_TO", "description": "Berufung ist ein Thema des 10. Hauses"},
+    {"source": "family", "target": "moon", "type": "RELATES_TO", "description": "Familie ist ein Mond-Thema"},
+    {"source": "family", "target": "cancer", "type": "RELATES_TO", "description": "Familie ist ein Krebs-Thema"},
+    {"source": "family", "target": "house_4", "type": "RELATES_TO", "description": "Familie ist ein Thema des 4. Hauses"},
+    {"source": "communication", "target": "mercury", "type": "RELATES_TO", "description": "Kommunikation ist ein Merkur-Thema"},
+    {"source": "communication", "target": "gemini", "type": "RELATES_TO", "description": "Kommunikation ist ein Zwillinge-Thema"},
+    {"source": "communication", "target": "house_3", "type": "RELATES_TO", "description": "Kommunikation ist ein Thema des 3. Hauses"},
+    {"source": "finances", "target": "venus", "type": "RELATES_TO", "description": "Finanzen sind ein Venus-Thema"},
+    {"source": "finances", "target": "taurus", "type": "RELATES_TO", "description": "Finanzen sind ein Stier-Thema"},
+    {"source": "finances", "target": "house_2", "type": "RELATES_TO", "description": "Finanzen sind ein Thema des 2. Hauses"},
+    {"source": "health", "target": "virgo", "type": "RELATES_TO", "description": "Gesundheit ist ein Jungfrau-Thema"},
+    {"source": "health", "target": "house_6", "type": "RELATES_TO", "description": "Gesundheit ist ein Thema des 6. Hauses"},
+    {"source": "health", "target": "chiron", "type": "RELATES_TO", "description": "Gesundheit ist ein Chiron-Thema"},
+    
+    {"source": "mercury_retrograde", "target": "mercury", "type": "VARIANT_OF", "description": "Merkur rückläufig ist ein Zustand von Merkur"},
+    {"source": "mercury_retrograde", "target": "retrograde", "type": "INSTANCE_OF", "description": "Merkur rückläufig ist eine Art von Rückläufigkeit"},
+    {"source": "retrograde", "target": "mercury", "type": "AFFECTS", "description": "Rückläufigkeit betrifft Merkur"},
+    {"source": "retrograde", "target": "venus", "type": "AFFECTS", "description": "Rückläufigkeit betrifft Venus"},
+    {"source": "retrograde", "target": "mars", "type": "AFFECTS", "description": "Rückläufigkeit betrifft Mars"},
+    
+    {"source": "new_moon", "target": "moon", "type": "PHASE_OF", "description": "Neumond ist eine Mondphase"},
+    {"source": "full_moon", "target": "moon", "type": "PHASE_OF", "description": "Vollmond ist eine Mondphase"},
+    {"source": "waxing_crescent", "target": "moon", "type": "PHASE_OF", "description": "Zunehmender Mond ist eine Mondphase"},
+    {"source": "waning_moon", "target": "moon", "type": "PHASE_OF", "description": "Abnehmender Mond ist eine Mondphase"},
+    {"source": "first_quarter", "target": "moon", "type": "PHASE_OF", "description": "Erstes Viertel ist eine Mondphase"},
+    {"source": "last_quarter", "target": "moon", "type": "PHASE_OF", "description": "Letztes Viertel ist eine Mondphase"},
+    
+    {"source": "conjunction", "target": "new_moon", "type": "ASSOCIATED_WITH", "description": "Konjunktion ist mit Neumond verbunden"},
+    {"source": "opposition", "target": "full_moon", "type": "ASSOCIATED_WITH", "description": "Opposition ist mit Vollmond verbunden"},
+    
+    {"source": "aries", "target": "libra", "type": "OPPOSITE_SIGN", "description": "Widder und Waage sind gegenüberliegende Zeichen"},
+    {"source": "taurus", "target": "scorpio", "type": "OPPOSITE_SIGN", "description": "Stier und Skorpion sind gegenüberliegende Zeichen"},
+    {"source": "gemini", "target": "sagittarius", "type": "OPPOSITE_SIGN", "description": "Zwillinge und Schütze sind gegenüberliegende Zeichen"},
+    {"source": "cancer", "target": "capricorn", "type": "OPPOSITE_SIGN", "description": "Krebs und Steinbock sind gegenüberliegende Zeichen"},
+    {"source": "leo", "target": "aquarius", "type": "OPPOSITE_SIGN", "description": "Löwe und Wassermann sind gegenüberliegende Zeichen"},
+    {"source": "virgo", "target": "pisces", "type": "OPPOSITE_SIGN", "description": "Jungfrau und Fische sind gegenüberliegende Zeichen"}
+  ],
+  "cross_references": {
+    "venus": ["relationships", "creativity", "taurus", "libra", "beauty", "love"],
+    "mars": ["energy", "aries", "action", "courage", "aggression"],
+    "mercury": ["communication", "gemini", "virgo", "intellect", "learning"],
+    "moon": ["emotions", "cancer", "intuition", "mother", "home"],
+    "sun": ["creativity", "leo", "self_expression", "vitality", "identity"],
+    "jupiter": ["expansion", "sagittarius", "wisdom", "luck", "growth"],
+    "saturn": ["structure", "capricorn", "discipline", "karma", "time"],
+    "uranus": ["innovation", "aquarius", "freedom", "revolution", "change"],
+    "neptune": ["spirituality", "pisces", "mysticism", "dreams", "illusion"],
+    "pluto": ["transformation", "scorpio", "power", "death", "rebirth"],
+    "chiron": ["healing", "wounds", "wisdom", "mentor", "virgo", "sagittarius"],
+    "north_node": ["destiny", "karma", "future", "life_purpose"],
+    "south_node": ["past", "karma", "talents", "comfort_zone"],
+    "leo": ["creativity", "sun", "self_expression", "heart", "pride"],
+    "virgo": ["healing", "mercury", "service", "health", "analysis"],
+    "scorpio": ["transformation", "pluto", "depth", "intensity", "secrets"],
+    "pisces": ["spirituality", "neptune", "compassion", "dreams", "intuition"],
+    "new_moon": ["new_beginnings", "intention", "manifestation", "seeds"],
+    "full_moon": ["culmination", "release", "awareness", "emotions"],
+    "retrograde": ["review", "reflection", "revision", "delays"]
+  }
+}
+
