@@ -206,3 +206,4 @@ def get_general_content_types() -> List[ContentType]:
     """Get content types that don't require user data."""
     return [ct for ct, template in CONTENT_TEMPLATES.items() if not template.is_personalized]
 
+

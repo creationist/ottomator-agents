@@ -38,19 +38,39 @@ Suche nach Informationen über das achte Haus
 
 ---
 
-### 🕸️ graph_search (Knowledge Graph)
+### 🌟 comprehensive_lookup (Combined Knowledge - PREFERRED)
 
-Best for: Finding connections and relationships in the knowledge graph.
+Best for: Most concept questions - combines ALL sources automatically.
 
 ```
-Welche Beziehungen hat Mars zu anderen Planeten?
-Wie sind Skorpion und Pluto verbunden?
-Zeige mir alle Verbindungen zum achten Haus
-Was ist mit dem Thema Heilung im Graph verbunden?
-Finde Graphverbindungen zu Venus
+Erkläre mir Mars
+Was ist Skorpion?
+Erzähl mir über das achte Haus
+Was weißt du über Venus?
+Was bedeutet Transformation?
 ```
 
-**Expected behavior:** Returns entities and relationships from Neo4j.
+**Expected tool:** `comprehensive_lookup`
+
+**Expected behavior:** Returns ontology facts + document content + graph relationships in one call.
+
+---
+
+### 🕸️ explore_ontology / lookup_concept (Single Source)
+
+Best for: When you only need ontology data (no documents).
+
+```
+Welche Zeichen gehören zum Element Wasser?
+Was sind die kardinalen Zeichen?
+Welche Planeten sind rückläufig?
+```
+
+**Expected tools:** 
+- `lookup_concept` for definitions only
+- `explore_ontology` for relationship queries
+
+**Expected behavior:** Returns only Neo4j ontology data.
 
 ---
 

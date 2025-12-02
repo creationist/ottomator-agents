@@ -4,6 +4,7 @@ Content generator with caching.
 Generates personalized astrology content using LLM and caches results.
 """
 
+import os
 import logging
 import json
 from typing import Dict, Any, Optional, List
@@ -19,6 +20,8 @@ from .prompts import (
 )
 
 logger = logging.getLogger(__name__)
+
+USE_SUPABASE = os.getenv("USE_SUPABASE", "true").lower() == "true"
 
 
 @dataclass
@@ -48,7 +51,7 @@ class PersonalizedContentGenerator:
         self,
         assembler: ContentContextAssembler,
         llm_client,
-        db_pool,
+        db_client=None,
         model: str = "gpt-4o-mini"
     ):
         """
@@ -57,13 +60,21 @@ class PersonalizedContentGenerator:
         Args:
             assembler: Context assembler instance
             llm_client: OpenAI-compatible async client
-            db_pool: Database connection pool
+            db_client: Database client (asyncpg pool or Supabase)
             model: LLM model to use
         """
         self.assembler = assembler
         self.llm = llm_client
-        self.db = db_pool
+        self.db = db_client
         self.model = model
+        self._use_supabase = USE_SUPABASE
+    
+    def _get_supabase_client(self):
+        """Get Supabase client lazily."""
+        if self._use_supabase:
+            from agent.supabase_client import supabase_admin_db
+            return supabase_admin_db.client
+        return None
     
     def _get_system_prompt(self, content_type: ContentType) -> str:
         """Get system prompt for content type."""
@@ -129,6 +140,48 @@ class PersonalizedContentGenerator:
         user_id: Optional[str] = None
     ) -> Optional[GeneratedContent]:
         """Check cache for valid content."""
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            query = client.table("generated_content") \
+                .select("*") \
+                .eq("content_type", content_type.value) \
+                .lte("valid_from", datetime.now(timezone.utc).isoformat()) \
+                .gte("valid_until", datetime.now(timezone.utc).isoformat()) \
+                .order("created_at", desc=True) \
+                .limit(1)
+            
+            if user_id:
+                query = query.eq("user_id", user_id)
+            else:
+                query = query.is_("user_id", "null")
+            
+            result = query.maybe_single().execute()
+            
+            if result.data:
+                row = result.data
+                metadata = row.get("metadata", {})
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+                
+                valid_from = row["valid_from"]
+                valid_until = row["valid_until"]
+                if isinstance(valid_from, str):
+                    valid_from = datetime.fromisoformat(valid_from.replace('Z', '+00:00'))
+                if isinstance(valid_until, str):
+                    valid_until = datetime.fromisoformat(valid_until.replace('Z', '+00:00'))
+                
+                return GeneratedContent(
+                    content_type=content_type,
+                    content=row["content"],
+                    user_id=row.get("user_id"),
+                    valid_from=valid_from,
+                    valid_until=valid_until,
+                    metadata=metadata,
+                    from_cache=True
+                )
+            return None
+        
+        # Fallback to asyncpg
         async with self.db.acquire() as conn:
             if user_id:
                 row = await conn.fetchrow(
@@ -183,6 +236,20 @@ class PersonalizedContentGenerator:
         metadata: Dict[str, Any]
     ) -> None:
         """Save generated content to cache."""
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            data = {
+                "content_type": content_type.value,
+                "user_id": user_id,
+                "content": content,
+                "valid_from": valid_from.isoformat(),
+                "valid_until": valid_until.isoformat(),
+                "metadata": metadata
+            }
+            client.table("generated_content").insert(data).execute()
+            return
+        
+        # Fallback to asyncpg
         async with self.db.acquire() as conn:
             await conn.execute(
                 """
@@ -387,6 +454,18 @@ class PersonalizedContentGenerator:
         
         Returns number of rows deleted.
         """
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            # Supabase doesn't return count directly, so we query first
+            result = client.table("generated_content") \
+                .delete() \
+                .lt("valid_until", datetime.now(timezone.utc).isoformat()) \
+                .execute()
+            deleted = len(result.data) if result.data else 0
+            logger.info(f"Cleaned up {deleted} expired content entries")
+            return deleted
+        
+        # Fallback to asyncpg
         async with self.db.acquire() as conn:
             result = await conn.execute(
                 """
@@ -398,4 +477,3 @@ class PersonalizedContentGenerator:
             deleted = int(result.split()[-1]) if result else 0
             logger.info(f"Cleaned up {deleted} expired content entries")
             return deleted
-

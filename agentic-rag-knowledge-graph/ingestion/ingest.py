@@ -47,7 +47,9 @@ class DocumentIngestionPipeline:
         self,
         config: IngestionConfig,
         documents_folder: str = "documents",
-        clean_before_ingest: bool = False
+        clean_before_ingest: bool = False,
+        use_graphiti: bool = False,
+        graph_only: bool = False
     ):
         """
         Initialize ingestion pipeline.
@@ -56,10 +58,17 @@ class DocumentIngestionPipeline:
             config: Ingestion configuration
             documents_folder: Folder containing markdown documents
             clean_before_ingest: Whether to clean existing data before ingestion
+            use_graphiti: If True, use Graphiti LLM-based extraction (slower, costs money, 
+                         but extracts richer relationships). If False (default), use 
+                         ontology-based regex matching (fast, free, but limited to 
+                         predefined entities).
+            graph_only: If True, only build knowledge graph without saving to Supabase.
+                       Useful for hybrid mode where documents are already in Supabase.
         """
         self.config = config
         self.documents_folder = documents_folder
         self.clean_before_ingest = clean_before_ingest
+        self.graph_only = graph_only
         
         # Initialize components
         self.chunker_config = ChunkingConfig(
@@ -72,10 +81,17 @@ class DocumentIngestionPipeline:
         self.chunker = create_chunker(self.chunker_config)
         self.embedder = create_embedder()
         
-        # Use ontology-based graph builder (zero LLM calls) by default
-        # This uses predefined astrology ontology for entity matching
+        # Choose graph builder mode
+        if use_graphiti:
+            # Graphiti: LLM-based extraction - richer relationships but expensive
+            self.graph_builder = create_graph_builder()
+            self.use_ontology_mode = False
+            logger.info("Using Graphiti LLM-based graph builder (richer extraction, costs LLM tokens)")
+        else:
+            # Ontology: Regex-based matching - fast and free but limited
         self.graph_builder = create_ontology_graph_builder()
         self.use_ontology_mode = True
+            logger.info("Using ontology-based graph builder (zero LLM calls)")
         
         self._initialized = False
     
@@ -240,7 +256,9 @@ class DocumentIngestionPipeline:
         embedded_chunks = await self.embedder.embed_chunks(chunks)
         logger.info(f"Generated embeddings for {len(embedded_chunks)} chunks")
         
-        # Save to PostgreSQL
+        # Save to PostgreSQL (skip if graph_only mode)
+        document_id = ""
+        if not self.graph_only:
         document_id = await self._save_to_postgres(
             document_title,
             document_source,
@@ -248,8 +266,9 @@ class DocumentIngestionPipeline:
             embedded_chunks,
             document_metadata
         )
-        
         logger.info(f"Saved document to PostgreSQL with ID: {document_id}")
+        else:
+            logger.info("Skipping PostgreSQL save (graph_only mode)")
         
         # Add to knowledge graph (if enabled)
         relationships_created = 0
@@ -477,6 +496,10 @@ async def main():
     parser.add_argument("--no-semantic", action="store_true", help="Disable semantic chunking")
     parser.add_argument("--no-entities", action="store_true", help="Disable entity extraction")
     parser.add_argument("--fast", "-f", action="store_true", help="Fast mode: skip knowledge graph building")
+    parser.add_argument("--graphiti", "-g", action="store_true", 
+                       help="Use Graphiti LLM-based extraction (richer relationships, costs $, slower)")
+    parser.add_argument("--graph-only", action="store_true",
+                       help="Only build knowledge graph, skip Supabase. Use for hybrid mode.")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     
     args = parser.parse_args()
@@ -501,7 +524,9 @@ async def main():
     pipeline = DocumentIngestionPipeline(
         config=config,
         documents_folder=args.documents,
-        clean_before_ingest=args.clean
+        clean_before_ingest=args.clean,
+        use_graphiti=args.graphiti,
+        graph_only=args.graph_only
     )
     
     def progress_callback(current: int, total: int):

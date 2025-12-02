@@ -8,6 +8,7 @@ Supports:
 - Error handling and logging
 """
 
+import os
 import logging
 import asyncio
 import json
@@ -22,6 +23,8 @@ from .generator import PersonalizedContentGenerator, GeneratedContent
 from .user_profile import UserProfileService
 
 logger = logging.getLogger(__name__)
+
+USE_SUPABASE = os.getenv("USE_SUPABASE", "true").lower() == "true"
 
 
 class BatchJobStatus(str, Enum):
@@ -94,14 +97,22 @@ class BatchContentGenerator:
         self,
         generator: PersonalizedContentGenerator,
         user_service: UserProfileService,
-        db_pool,
+        db_client=None,
         max_concurrency: int = 5
     ):
         self.generator = generator
         self.users = user_service
-        self.db = db_pool
+        self.db = db_client
         self.max_concurrency = max_concurrency
         self.semaphore = asyncio.Semaphore(max_concurrency)
+        self._use_supabase = USE_SUPABASE
+    
+    def _get_supabase_client(self):
+        """Get Supabase client lazily."""
+        if self._use_supabase:
+            from agent.supabase_client import supabase_admin_db
+            return supabase_admin_db.client
+        return None
     
     async def _create_job(
         self,
@@ -111,18 +122,28 @@ class BatchContentGenerator:
         """Create a batch job record in database."""
         job_id = str(uuid.uuid4())
         
-        async with self.db.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO batch_jobs (id, job_type, status, total_users, started_at)
-                VALUES ($1, $2, $3, $4, $5)
-                """,
-                uuid.UUID(job_id),
-                job_type,
-                BatchJobStatus.RUNNING.value,
-                total_users,
-                datetime.now(timezone.utc)
-            )
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            client.table("batch_jobs").insert({
+                "id": job_id,
+                "job_type": job_type,
+                "status": BatchJobStatus.RUNNING.value,
+                "total_users": total_users,
+                "started_at": datetime.now(timezone.utc).isoformat()
+            }).execute()
+        else:
+            async with self.db.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO batch_jobs (id, job_type, status, total_users, started_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    """,
+                    uuid.UUID(job_id),
+                    job_type,
+                    BatchJobStatus.RUNNING.value,
+                    total_users,
+                    datetime.now(timezone.utc)
+                )
         
         return job_id
     
@@ -133,28 +154,35 @@ class BatchContentGenerator:
         errors: List[BatchJobError] = None
     ) -> None:
         """Update job progress in database."""
-        async with self.db.acquire() as conn:
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            data = {"processed_users": processed_users}
             if errors:
-                await conn.execute(
-                    """
-                    UPDATE batch_jobs
-                    SET processed_users = $2, errors = $3
-                    WHERE id = $1
-                    """,
-                    uuid.UUID(job_id),
-                    processed_users,
-                    json.dumps([e.to_dict() for e in errors])
-                )
-            else:
-                await conn.execute(
-                    """
-                    UPDATE batch_jobs
-                    SET processed_users = $2
-                    WHERE id = $1
-                    """,
-                    uuid.UUID(job_id),
-                    processed_users
-                )
+                data["errors"] = [e.to_dict() for e in errors]
+            client.table("batch_jobs").update(data).eq("id", job_id).execute()
+        else:
+            async with self.db.acquire() as conn:
+                if errors:
+                    await conn.execute(
+                        """
+                        UPDATE batch_jobs
+                        SET processed_users = $2, errors = $3
+                        WHERE id = $1
+                        """,
+                        uuid.UUID(job_id),
+                        processed_users,
+                        json.dumps([e.to_dict() for e in errors])
+                    )
+                else:
+                    await conn.execute(
+                        """
+                        UPDATE batch_jobs
+                        SET processed_users = $2
+                        WHERE id = $1
+                        """,
+                        uuid.UUID(job_id),
+                        processed_users
+                    )
     
     async def _complete_job(
         self,
@@ -163,54 +191,83 @@ class BatchContentGenerator:
         errors: List[BatchJobError]
     ) -> None:
         """Mark job as completed."""
-        async with self.db.acquire() as conn:
-            await conn.execute(
-                """
-                UPDATE batch_jobs
-                SET status = $2, completed_at = $3, errors = $4
-                WHERE id = $1
-                """,
-                uuid.UUID(job_id),
-                status.value,
-                datetime.now(timezone.utc),
-                json.dumps([e.to_dict() for e in errors])
-            )
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            client.table("batch_jobs").update({
+                "status": status.value,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "errors": [e.to_dict() for e in errors]
+            }).eq("id", job_id).execute()
+        else:
+            async with self.db.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE batch_jobs
+                    SET status = $2, completed_at = $3, errors = $4
+                    WHERE id = $1
+                    """,
+                    uuid.UUID(job_id),
+                    status.value,
+                    datetime.now(timezone.utc),
+                    json.dumps([e.to_dict() for e in errors])
+                )
     
     async def get_job_status(self, job_id: str) -> Optional[BatchJobResult]:
         """Get current status of a batch job."""
-        async with self.db.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM batch_jobs WHERE id = $1",
-                uuid.UUID(job_id)
-            )
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            result = client.table("batch_jobs") \
+                .select("*") \
+                .eq("id", job_id) \
+                .maybe_single() \
+                .execute()
             
-            if not row:
+            if not result.data:
                 return None
             
-            errors_data = row.get("errors", [])
-            if isinstance(errors_data, str):
-                errors_data = json.loads(errors_data)
-            
-            errors = [
-                BatchJobError(
-                    user_id=e["user_id"],
-                    content_type=e["content_type"],
-                    error_message=e["error_message"],
-                    timestamp=datetime.fromisoformat(e["timestamp"])
+            row = result.data
+        else:
+            async with self.db.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM batch_jobs WHERE id = $1",
+                    uuid.UUID(job_id)
                 )
-                for e in errors_data
-            ] if errors_data else []
-            
-            return BatchJobResult(
-                job_id=str(row["id"]),
-                job_type=row["job_type"],
-                status=BatchJobStatus(row["status"]),
-                total_users=row["total_users"] or 0,
-                processed_users=row["processed_users"] or 0,
-                errors=errors,
-                started_at=row.get("started_at"),
-                completed_at=row.get("completed_at")
+                
+                if not row:
+                    return None
+                row = dict(row)
+        
+        errors_data = row.get("errors", [])
+        if isinstance(errors_data, str):
+            errors_data = json.loads(errors_data)
+        
+        errors = [
+            BatchJobError(
+                user_id=e["user_id"],
+                content_type=e["content_type"],
+                error_message=e["error_message"],
+                timestamp=datetime.fromisoformat(e["timestamp"].replace('Z', '+00:00'))
             )
+            for e in errors_data
+        ] if errors_data else []
+        
+        started_at = row.get("started_at")
+        completed_at = row.get("completed_at")
+        if isinstance(started_at, str):
+            started_at = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+        if isinstance(completed_at, str):
+            completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+        
+        return BatchJobResult(
+            job_id=str(row["id"]),
+            job_type=row["job_type"],
+            status=BatchJobStatus(row["status"]),
+            total_users=row["total_users"] or 0,
+            processed_users=row["processed_users"] or 0,
+            errors=errors,
+            started_at=started_at,
+            completed_at=completed_at
+        )
     
     async def _generate_for_user(
         self,
@@ -391,4 +448,3 @@ class BatchContentGenerator:
             ContentType.MOON_REFLECTION,
             user_ids=user_ids
         )
-

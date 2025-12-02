@@ -13,7 +13,7 @@
       "name": "Sonne",
       "type": "planet",
       "description": "Selbstausdruck, Vitalität, Ego, Lebenskraft und bewusste Identität",
-      "keywords": ["sonne", "sol", "sonnenlicht", "vitalität", "ego", "selbstausdruck", "identität"],
+      "keywords": ["sonne", "sonnenzeichen", "sonnenlicht", "vitalität", "sonnenenergie", "selbstausdruck", "kernidentität"],
       "attributes": {
         "rules": ["leo"],
         "exaltation": "aries",
@@ -58,7 +58,7 @@
       "name": "Venus",
       "type": "planet",
       "description": "Liebe, Schönheit, Harmonie, Werte, Beziehungen und Genuss",
-      "keywords": ["venus", "liebe", "schönheit", "harmonie", "werte", "beziehung", "genuss", "kunst", "ästhetik"],
+      "keywords": ["venus", "liebesplanet", "schönheit", "harmonie", "werte", "beziehungsplanet", "genuss", "kunst", "ästhetik"],
       "attributes": {
         "rules": ["taurus", "libra"],
         "exaltation": "pisces",
@@ -73,7 +73,7 @@
       "name": "Mars",
       "type": "planet",
       "description": "Energie, Durchsetzung, Handlung, Willenskraft und Antrieb",
-      "keywords": ["mars", "energie", "durchsetzung", "handlung", "willenskraft", "antrieb", "kampf", "mut", "aggression"],
+      "keywords": ["mars", "marsenergie", "durchsetzung", "handlungskraft", "willenskraft", "antrieb", "kampfgeist", "aggressivität"],
       "attributes": {
         "rules": ["aries", "scorpio"],
         "exaltation": "capricorn",
@@ -88,7 +88,7 @@
       "name": "Jupiter",
       "type": "planet",
       "description": "Expansion, Weisheit, Glück, Wachstum, Optimismus und Sinnsuche",
-      "keywords": ["jupiter", "expansion", "weisheit", "glück", "wachstum", "optimismus", "sinn", "fülle", "großzügigkeit"],
+      "keywords": ["jupiter", "expansion", "weisheit", "glücksplanet", "wachstum", "optimismus", "sinnsuche", "fülle", "großzügigkeit"],
       "attributes": {
         "rules": ["sagittarius", "pisces"],
         "exaltation": "cancer",
@@ -103,7 +103,7 @@
       "name": "Saturn",
       "type": "planet",
       "description": "Struktur, Disziplin, Begrenzung, Verantwortung und Reife",
-      "keywords": ["saturn", "struktur", "disziplin", "begrenzung", "verantwortung", "reife", "karma", "zeit", "geduld"],
+      "keywords": ["saturn", "saturnisch", "struktur", "disziplin", "begrenzung", "verantwortung", "reife", "karmisch", "zeitherr"],
       "attributes": {
         "rules": ["capricorn", "aquarius"],
         "exaltation": "libra",
@@ -198,7 +198,7 @@
       "name": "Widder",
       "type": "sign",
       "description": "Pioniergeist, Initiative, Mut, Unabhängigkeit und Durchsetzungskraft",
-      "keywords": ["widder", "aries", "pionier", "initiative", "mut", "unabhängigkeit", "durchsetzung", "anfang", "impuls"],
+      "keywords": ["widder", "aries", "pionier", "initiative", "mutig", "unabhängigkeit", "durchsetzung", "neuanfang", "impulsiv"],
       "attributes": {
         "element": "fire",
         "modality": "cardinal",
@@ -254,7 +254,7 @@
       "name": "Löwe",
       "type": "sign",
       "description": "Kreativität, Selbstausdruck, Stolz, Großzügigkeit und Lebensfreude",
-      "keywords": ["löwe", "leo", "kreativität", "selbstausdruck", "stolz", "großzügigkeit", "lebensfreude", "herz", "königlich"],
+      "keywords": ["löwe", "löwezeichen", "kreativität", "selbstausdruck", "stolz", "großzügigkeit", "lebensfreude", "herzenergie", "königlich"],
       "attributes": {
         "element": "fire",
         "modality": "fixed",
@@ -354,7 +354,7 @@
       "name": "Fische",
       "type": "sign",
       "description": "Spiritualität, Empathie, Intuition, Kreativität und universelle Liebe",
-      "keywords": ["fische", "pisces", "spiritualität", "empathie", "intuition", "kreativität", "liebe", "traum", "mitgefühl"],
+      "keywords": ["fische", "pisces", "spiritualität", "empathie", "intuition", "kreativität", "universelle liebe", "traumwelt", "mitgefühl"],
       "attributes": {
         "element": "water",
         "modality": "mutable",
@@ -369,7 +369,7 @@
       "name": "Erstes Haus",
       "type": "house",
       "description": "Selbst, Erscheinung, Persönlichkeit, körperliche Konstitution und Aszendent",
-      "keywords": ["erstes haus", "aszendent", "selbst", "erscheinung", "persönlichkeit", "körper", "ich", "identität"],
+      "keywords": ["erstes haus", "1. haus", "aszendent", "aufsteigendes zeichen", "erscheinung", "persönlichkeit", "selbstbild", "außenwirkung"],
       "attributes": {
         "natural_ruler": "aries",
         "life_area": "Selbstbild und Außenwirkung",
@@ -405,7 +405,7 @@
       "name": "Viertes Haus",
       "type": "house",
       "description": "Heim, Familie, Wurzeln, emotionale Grundlage und innere Sicherheit",
-      "keywords": ["viertes haus", "imum coeli", "ic", "heim", "familie", "wurzeln", "herkunft", "zuhause", "mutter"],
+      "keywords": ["viertes haus", "4. haus", "imum coeli", "nadir", "heim", "familie", "wurzeln", "herkunft", "emotionale basis"],
       "attributes": {
         "natural_ruler": "cancer",
         "life_area": "Heimat und Familie",
@@ -441,7 +441,7 @@
       "name": "Siebtes Haus",
       "type": "house",
       "description": "Partnerschaft, Ehe, Verträge, offene Feinde und das Du",
-      "keywords": ["siebtes haus", "deszendent", "partnerschaft", "ehe", "verträge", "beziehung", "du", "gegenüber", "partner"],
+      "keywords": ["siebtes haus", "7. haus", "deszendent", "absteigendes zeichen", "partnerschaft", "verträge", "offene feinde", "beziehungshaus"],
       "attributes": {
         "natural_ruler": "libra",
         "life_area": "Partnerschaften",
@@ -453,7 +453,7 @@
       "name": "Achtes Haus",
       "type": "house",
       "description": "Transformation, gemeinsame Ressourcen, Tod und Wiedergeburt, Intimität",
-      "keywords": ["achtes haus", "transformation", "ressourcen", "tod", "wiedergeburt", "intimität", "erbe", "okkultes", "tiefe"],
+      "keywords": ["achtes haus", "8. haus", "transformation", "gemeinsame ressourcen", "wiedergeburt", "intimität", "erbschaft", "okkultes"],
       "attributes": {
         "natural_ruler": "scorpio",
         "life_area": "Transformation und Tiefe",
@@ -477,7 +477,7 @@
       "name": "Zehntes Haus",
       "type": "house",
       "description": "Karriere, öffentliches Ansehen, Berufung, Autorität und Lebensziele",
-      "keywords": ["zehntes haus", "medium coeli", "mc", "karriere", "ansehen", "berufung", "autorität", "ziele", "vater", "erfolg"],
+      "keywords": ["zehntes haus", "10. haus", "medium coeli", "karriere", "berufung", "öffentliches ansehen", "lebensziele"],
       "attributes": {
         "natural_ruler": "capricorn",
         "life_area": "Karriere und Berufung",
@@ -652,7 +652,7 @@
       "name": "Kardinal",
       "type": "modality",
       "description": "Initiative, Neuanfänge, Führung und Antrieb",
-      "keywords": ["kardinal", "initiative", "anfang", "führung", "antrieb", "start", "aktion"],
+      "keywords": ["kardinal", "kardinale zeichen", "kardinaler modus", "initiieren", "führungsqualität", "aktiv handeln"],
       "attributes": {
         "signs": ["aries", "cancer", "libra", "capricorn"],
         "quality": "initiierend",
@@ -664,7 +664,7 @@
       "name": "Fix",
       "type": "modality",
       "description": "Beständigkeit, Ausdauer, Stabilität und Durchhaltevermögen",
-      "keywords": ["fix", "fest", "beständigkeit", "ausdauer", "stabilität", "durchhaltevermögen", "stur"],
+      "keywords": ["fixe zeichen", "fixer modus", "beständigkeit", "ausdauer", "stabilität", "durchhaltevermögen", "standhaft"],
       "attributes": {
         "signs": ["taurus", "leo", "scorpio", "aquarius"],
         "quality": "bewahrend",
@@ -688,7 +688,7 @@
       "name": "Neumond",
       "type": "lunar_phase",
       "description": "Neubeginn, Absichten setzen, Samen pflanzen, innere Einkehr",
-      "keywords": ["neumond", "neubeginn", "absicht", "intention", "start", "samen", "dunkelheit"],
+      "keywords": ["neumond", "neubeginn", "absicht setzen", "intention", "neue phase", "mondphase", "dunkelmond"],
       "attributes": {
         "phase_order": 1,
         "illumination": "0%",
@@ -748,7 +748,7 @@
       "name": "Letztes Viertel",
       "type": "lunar_phase",
       "description": "Abschluss, Neuausrichtung, Krise im Bewusstsein, Vorbereitung",
-      "keywords": ["letztes viertel", "abschluss", "neuausrichtung", "krise", "vorbereitung", "ende"],
+      "keywords": ["letztes viertel", "abschlussphase", "neuausrichtung", "bewusstseinskrise", "zyklusende"],
       "attributes": {
         "phase_order": 6,
         "illumination": "50%",
@@ -807,7 +807,7 @@
       "name": "Beziehungen",
       "type": "theme",
       "description": "Zwischenmenschliche Verbindungen, Partnerschaften, Liebe und Harmonie",
-      "keywords": ["beziehung", "partnerschaft", "liebe", "verbindung", "harmonie", "ehe", "partner"],
+      "keywords": ["beziehungsthema", "partnerschaft", "liebesbeziehung", "paarbeziehung", "harmonische verbindung", "ehepartner"],
       "attributes": {
         "associated_planets": ["venus"],
         "associated_signs": ["libra", "taurus"],

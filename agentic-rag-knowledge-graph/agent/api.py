@@ -8,7 +8,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from fastapi import FastAPI, HTTPException, Request, Depends
@@ -17,6 +17,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import uvicorn
 from dotenv import load_dotenv
+
+# Rate limiting
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    RATE_LIMITING_AVAILABLE = True
+except ImportError:
+    RATE_LIMITING_AVAILABLE = False
+
+# Auth module
+from .auth import (
+    get_current_user,
+    get_optional_user,
+    require_service_role,
+    get_user_id_for_rate_limit,
+    is_development,
+    AuthUser
+)
+from .supabase_client import supabase_auth, SupabaseAuth
 
 from .agent import rag_agent, AgentDependencies
 from .db_utils import (
@@ -48,6 +68,14 @@ from .models import (
     BatchGenerateRequest,
     BatchJobStatusResponse,
     MonthlyContentResponse,
+    # Auth models
+    AuthSignupRequest,
+    AuthLoginRequest,
+    AuthTokenResponse,
+    AuthUserResponse,
+    # Mobile models
+    MobileBootstrapResponse,
+    MobileTodayResponse,
 )
 from .tools import (
     vector_search_tool,
@@ -128,10 +156,23 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Agentic RAG with Knowledge Graph",
-    description="AI agent combining vector search and knowledge graph for tech company analysis",
-    version="0.1.0",
+    description="AI agent combining vector search and knowledge graph for astrology content",
+    version="0.2.0",
     lifespan=lifespan
 )
+
+# Rate limiter setup
+if RATE_LIMITING_AVAILABLE:
+    limiter = Limiter(key_func=get_user_id_for_rate_limit)
+    app.state.limiter = limiter
+    
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+        return ErrorResponse(
+            error="Rate limit exceeded. Please try again later.",
+            error_type="RateLimitExceeded",
+            request_id=str(uuid.uuid4())
+        )
 
 # Add middleware with flexible CORS
 app.add_middleware(
@@ -691,7 +732,6 @@ async def get_content_services():
             from content.context_assembler import ContentContextAssembler
             from content.generator import PersonalizedContentGenerator
             from content.batch import BatchContentGenerator
-            from .db_utils import db_pool
             from .providers import get_llm_client
             
             # Try to get ontology if available
@@ -701,13 +741,15 @@ async def get_content_services():
             except Exception:
                 ontology = None
             
-            user_service = UserProfileService(db_pool)
+            # Content services now use Supabase client internally (via USE_SUPABASE env)
+            # No need to pass db_pool - they handle database access themselves
+            user_service = UserProfileService()
             transit_service = TransitService()
             assembler = ContentContextAssembler(user_service, transit_service, ontology)
             
             llm_client = get_llm_client()
-            generator = PersonalizedContentGenerator(assembler, llm_client, db_pool)
-            batch_generator = BatchContentGenerator(generator, user_service, db_pool)
+            generator = PersonalizedContentGenerator(assembler, llm_client)
+            batch_generator = BatchContentGenerator(generator, user_service)
             
             _content_services = {
                 "user_service": user_service,
@@ -1035,6 +1077,368 @@ async def get_monthly_transits(
         
     except Exception as e:
         logger.error(f"Monthly transit retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Authentication Endpoints
+# =============================================================================
+
+@app.post("/auth/signup", response_model=AuthTokenResponse)
+async def auth_signup(request: AuthSignupRequest):
+    """Register a new user."""
+    try:
+        result = await supabase_auth.sign_up(request.email, request.password)
+        
+        if not result.get("session"):
+            # Email confirmation required
+            return AuthTokenResponse(
+                access_token="",
+                refresh_token="",
+                expires_in=0,
+                user=AuthUserResponse(
+                    id=result["user"]["id"] if result.get("user") else "",
+                    email=request.email,
+                    email_confirmed=False
+                ),
+                message="Please check your email to confirm your account."
+            )
+        
+        session = result["session"]
+        user = result["user"]
+        
+        return AuthTokenResponse(
+            access_token=session.get("access_token", ""),
+            refresh_token=session.get("refresh_token", ""),
+            expires_in=session.get("expires_in", 3600),
+            user=AuthUserResponse(
+                id=user["id"],
+                email=user.get("email", request.email),
+                email_confirmed=user.get("email_confirmed_at") is not None
+            )
+        )
+        
+    except Exception as e:
+        logger.error(f"Signup failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/login", response_model=AuthTokenResponse)
+async def auth_login(request: AuthLoginRequest):
+    """Sign in with email and password."""
+    try:
+        result = await supabase_auth.sign_in(request.email, request.password)
+        
+        session = result["session"]
+        user = result["user"]
+        
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        return AuthTokenResponse(
+            access_token=session.get("access_token", ""),
+            refresh_token=session.get("refresh_token", ""),
+            expires_in=session.get("expires_in", 3600),
+            user=AuthUserResponse(
+                id=user["id"],
+                email=user.get("email", ""),
+                email_confirmed=user.get("email_confirmed_at") is not None
+            )
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+@app.post("/auth/logout")
+async def auth_logout(user: AuthUser = Depends(get_current_user)):
+    """Sign out the current user."""
+    try:
+        await supabase_auth.sign_out()
+        return {"message": "Logged out successfully"}
+    except Exception as e:
+        logger.error(f"Logout failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/auth/refresh", response_model=AuthTokenResponse)
+async def auth_refresh(refresh_token: str):
+    """Refresh access token using refresh token."""
+    try:
+        result = await supabase_auth.refresh_session(refresh_token)
+        
+        session = result["session"]
+        user = result["user"]
+        
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        
+        return AuthTokenResponse(
+            access_token=session.get("access_token", ""),
+            refresh_token=session.get("refresh_token", ""),
+            expires_in=session.get("expires_in", 3600),
+            user=AuthUserResponse(
+                id=user["id"],
+                email=user.get("email", ""),
+                email_confirmed=user.get("email_confirmed_at") is not None
+            )
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
+@app.get("/auth/user", response_model=AuthUserResponse)
+async def auth_get_user(user: AuthUser = Depends(get_current_user)):
+    """Get current user information."""
+    return AuthUserResponse(
+        id=user.id,
+        email=user.email or "",
+        email_confirmed=not user.is_anonymous
+    )
+
+
+# =============================================================================
+# Mobile-Optimized Endpoints
+# =============================================================================
+
+@app.get("/mobile/bootstrap", response_model=MobileBootstrapResponse)
+async def mobile_bootstrap(user: AuthUser = Depends(get_current_user)):
+    """
+    Get all data needed for mobile app launch.
+    
+    Returns profile, current transits, and cached content in a single call.
+    """
+    try:
+        services = await get_content_services()
+        user_service = services["user_service"]
+        transit_service = services["transit_service"]
+        generator = services["generator"]
+        ContentType = services["ContentType"]
+        
+        # Get user profile
+        profile = await user_service.get_profile(user.id)
+        profile_data = None
+        if profile and profile.sun_sign:
+            profile_data = {
+                "user_id": profile.user_id,
+                "sun_sign": profile.sun_sign,
+                "moon_sign": profile.moon_sign,
+                "rising_sign": profile.rising_sign,
+            }
+        
+        # Get current transits
+        transits = transit_service.get_current_transits()
+        transits_data = transits.to_dict()
+        
+        # Get cached content (don't generate new)
+        monthly_general = await generator._get_cached_content(ContentType.MONTHLY_GENERAL)
+        monthly_personal = await generator._get_cached_content(ContentType.MONTHLY_PERSONAL, user.id)
+        moon_reflection = await generator._get_cached_content(ContentType.MOON_REFLECTION, user.id)
+        
+        cached_content = {}
+        if monthly_general:
+            cached_content["monthly_general"] = {
+                "content": monthly_general.content,
+                "expires": int(monthly_general.valid_until.timestamp())
+            }
+        if monthly_personal:
+            cached_content["monthly_personal"] = {
+                "content": monthly_personal.content,
+                "expires": int(monthly_personal.valid_until.timestamp())
+            }
+        if moon_reflection:
+            cached_content["moon_reflection"] = {
+                "content": moon_reflection.content,
+                "expires": int(moon_reflection.valid_until.timestamp())
+            }
+        
+        return MobileBootstrapResponse(
+            profile=profile_data,
+            transits=transits_data,
+            cached_content=cached_content,
+            server_time=int(datetime.now(timezone.utc).timestamp())
+        )
+        
+    except Exception as e:
+        logger.error(f"Mobile bootstrap failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/mobile/today", response_model=MobileTodayResponse)
+async def mobile_today(user: AuthUser = Depends(get_current_user)):
+    """
+    Get today's relevant content.
+    
+    Returns only content that's currently relevant (e.g., moon reflection if Moon changed).
+    """
+    try:
+        services = await get_content_services()
+        transit_service = services["transit_service"]
+        generator = services["generator"]
+        ContentType = services["ContentType"]
+        
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+        
+        # Get current moon position
+        transits = transit_service.get_current_transits()
+        current_moon = transits.moon
+        
+        # Check for moon reflection (regenerate if Moon changed sign recently)
+        moon_content = await generator.generate_content(
+            content_type=ContentType.MOON_REFLECTION,
+            user_id=user.id,
+            force_refresh=False  # Use cache if available
+        )
+        
+        content = {}
+        if moon_content:
+            content["moon_reflection"] = {
+                "content": moon_content.content,
+                "expires": int(moon_content.valid_until.timestamp()),
+                "from_cache": moon_content.from_cache
+            }
+        
+        return MobileTodayResponse(
+            date=now.strftime("%Y-%m-%d"),
+            moon_sign=current_moon.get("sign", ""),
+            content=content,
+            server_time=int(now.timestamp())
+        )
+        
+    except Exception as e:
+        logger.error(f"Mobile today failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Protected Endpoints (require auth in production)
+# =============================================================================
+
+@app.get("/me/profile", response_model=UserProfileResponse)
+async def get_my_profile(user: AuthUser = Depends(get_current_user)):
+    """Get the authenticated user's profile."""
+    try:
+        services = await get_content_services()
+        user_service = services["user_service"]
+        
+        profile = await user_service.get_profile(user.id)
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found. Please create a profile first.")
+        
+        return UserProfileResponse(
+            user_id=profile.user_id,
+            sun_sign=profile.sun_sign,
+            moon_sign=profile.moon_sign,
+            rising_sign=profile.rising_sign,
+            birth_datetime=profile.birth_datetime,
+            birth_location=profile.birth_location_name,
+            natal_positions={
+                k: {"sign": v.sign, "degree": v.degree_in_sign, "house": v.house}
+                for k, v in profile.natal_positions.items()
+            },
+            chart_computed_at=profile.chart_computed_at
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Profile retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/me/profile", response_model=UserProfileResponse)
+async def create_my_profile(
+    birth_data: BirthData,
+    user: AuthUser = Depends(get_current_user)
+):
+    """Create or update the authenticated user's profile."""
+    try:
+        services = await get_content_services()
+        user_service = services["user_service"]
+        
+        profile = await user_service.create_or_update_profile(
+            user_id=user.id,
+            birth_datetime=birth_data.birth_datetime,
+            birth_latitude=birth_data.latitude,
+            birth_longitude=birth_data.longitude,
+            birth_location_name=birth_data.location_name
+        )
+        
+        return UserProfileResponse(
+            user_id=profile.user_id,
+            sun_sign=profile.sun_sign,
+            moon_sign=profile.moon_sign,
+            rising_sign=profile.rising_sign,
+            birth_datetime=profile.birth_datetime,
+            birth_location=profile.birth_location_name,
+            natal_positions={
+                k: {"sign": v.sign, "degree": v.degree_in_sign, "house": v.house}
+                for k, v in profile.natal_positions.items()
+            },
+            chart_computed_at=profile.chart_computed_at
+        )
+        
+    except Exception as e:
+        logger.error(f"Profile creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/me/content/monthly", response_model=MonthlyContentResponse)
+async def get_my_monthly_content(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    user: AuthUser = Depends(get_current_user)
+):
+    """Get monthly content for the authenticated user."""
+    try:
+        services = await get_content_services()
+        generator = services["generator"]
+        
+        results = await generator.get_all_monthly_content(
+            user_id=user.id,
+            year=year,
+            month=month
+        )
+        
+        response = MonthlyContentResponse()
+        
+        if "general" in results:
+            r = results["general"]
+            response.general = ContentResponse(
+                content_type=r.content_type.value,
+                content=r.content,
+                user_id=r.user_id,
+                valid_from=r.valid_from,
+                valid_until=r.valid_until,
+                from_cache=r.from_cache,
+                metadata=r.metadata
+            )
+        
+        if "personal" in results:
+            r = results["personal"]
+            response.personal = ContentResponse(
+                content_type=r.content_type.value,
+                content=r.content,
+                user_id=r.user_id,
+                valid_from=r.valid_from,
+                valid_until=r.valid_until,
+                from_cache=r.from_cache,
+                metadata=r.metadata
+            )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Monthly content retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

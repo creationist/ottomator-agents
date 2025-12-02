@@ -5,6 +5,7 @@ Manages user birth data and computed chart information.
 Uses Swiss Ephemeris (pyswisseph) for astronomical calculations.
 """
 
+import os
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -19,6 +20,8 @@ except ImportError:
     logging.warning("pyswisseph not installed. Chart calculations will use fallback.")
 
 logger = logging.getLogger(__name__)
+
+USE_SUPABASE = os.getenv("USE_SUPABASE", "true").lower() == "true"
 
 # =============================================================================
 # Constants
@@ -156,9 +159,13 @@ class UserAstroProfile:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "UserAstroProfile":
         """Create from dictionary."""
+        birth_dt = data["birth_datetime"]
+        if isinstance(birth_dt, str):
+            birth_dt = datetime.fromisoformat(birth_dt.replace('Z', '+00:00'))
+        
         profile = cls(
             user_id=data["user_id"],
-            birth_datetime=datetime.fromisoformat(data["birth_datetime"]),
+            birth_datetime=birth_dt,
             birth_latitude=data["birth_latitude"],
             birth_longitude=data["birth_longitude"],
             birth_location_name=data.get("birth_location_name"),
@@ -193,7 +200,11 @@ class UserAstroProfile:
         profile.house_cusps = data.get("house_cusps", {})
         
         if data.get("chart_computed_at"):
-            profile.chart_computed_at = datetime.fromisoformat(data["chart_computed_at"])
+            computed_at = data["chart_computed_at"]
+            if isinstance(computed_at, str):
+                profile.chart_computed_at = datetime.fromisoformat(computed_at.replace('Z', '+00:00'))
+            else:
+                profile.chart_computed_at = computed_at
         
         return profile
 
@@ -386,70 +397,119 @@ class ChartCalculator:
 class UserProfileService:
     """Service for managing user astrological profiles."""
     
-    def __init__(self, db_pool):
-        self.db = db_pool
+    def __init__(self, db_client=None):
+        """
+        Initialize service.
+        
+        Args:
+            db_client: Either asyncpg pool or Supabase client
+        """
+        self.db = db_client
         self.calculator = ChartCalculator()
+        self._use_supabase = USE_SUPABASE
+    
+    def _get_supabase_client(self):
+        """Get Supabase client lazily."""
+        if self._use_supabase:
+            from agent.supabase_client import supabase_admin_db
+            return supabase_admin_db.client
+        return None
     
     async def get_profile(self, user_id: str) -> Optional[UserAstroProfile]:
         """Get cached profile from database."""
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            result = client.table("user_profiles") \
+                .select("*") \
+                .eq("user_id", user_id) \
+                .maybe_single() \
+                .execute()
+            
+            if not result.data:
+                return None
+            
+            row = result.data
+            return self._row_to_profile(row)
+        
+        # Fallback to asyncpg
         async with self.db.acquire() as conn:
             row = await conn.fetchrow(
-                """
-                SELECT * FROM user_profiles WHERE user_id = $1
-                """,
+                "SELECT * FROM user_profiles WHERE user_id = $1",
                 user_id
             )
             
             if not row:
                 return None
             
-            profile = UserAstroProfile(
+            return self._row_to_profile(dict(row))
+    
+    def _row_to_profile(self, row: Dict[str, Any]) -> UserAstroProfile:
+        """Convert database row to UserAstroProfile."""
+        birth_dt = row.get("birth_datetime")
+        if birth_dt and isinstance(birth_dt, str):
+            birth_dt = datetime.fromisoformat(birth_dt.replace('Z', '+00:00'))
+        
+        if not birth_dt:
+            # No birth data yet - return minimal profile
+            return UserAstroProfile(
                 user_id=row["user_id"],
-                birth_datetime=row["birth_datetime"],
-                birth_latitude=row["birth_latitude"],
-                birth_longitude=row["birth_longitude"],
-                birth_location_name=row.get("birth_location_name"),
-                sun_sign=row.get("sun_sign", ""),
-                moon_sign=row.get("moon_sign", ""),
-                rising_sign=row.get("rising_sign", ""),
-                chart_computed_at=row.get("chart_computed_at"),
+                birth_datetime=datetime.now(timezone.utc),
+                birth_latitude=0.0,
+                birth_longitude=0.0
             )
-            
-            # Parse JSON fields
-            if row.get("natal_positions"):
-                positions_data = row["natal_positions"]
-                if isinstance(positions_data, str):
-                    positions_data = json.loads(positions_data)
-                for k, v in positions_data.items():
-                    profile.natal_positions[k] = PlanetPosition(
-                        planet=v["planet"],
-                        longitude=v["longitude"],
-                        sign=v["sign"],
-                        degree_in_sign=v["degree_in_sign"],
-                        house=v.get("house"),
-                        retrograde=v.get("retrograde", False)
-                    )
-            
-            if row.get("natal_aspects"):
-                aspects_data = row["natal_aspects"]
-                if isinstance(aspects_data, str):
-                    aspects_data = json.loads(aspects_data)
-                for a in aspects_data:
-                    profile.natal_aspects.append(Aspect(
-                        planet1=a["planet1"],
-                        planet2=a["planet2"],
-                        aspect_type=a["aspect_type"],
-                        orb=a["orb"],
-                        applying=a.get("applying", False)
-                    ))
-            
-            if row.get("house_cusps"):
-                cusps_data = row["house_cusps"]
-                if isinstance(cusps_data, str):
-                    cusps_data = json.loads(cusps_data)
-                profile.house_cusps = {int(k): v for k, v in cusps_data.items()}
-            
-            return profile
+        
+        profile = UserAstroProfile(
+            user_id=row["user_id"],
+            birth_datetime=birth_dt,
+            birth_latitude=row.get("birth_latitude", 0.0),
+            birth_longitude=row.get("birth_longitude", 0.0),
+            birth_location_name=row.get("birth_location_name"),
+            sun_sign=row.get("sun_sign", ""),
+            moon_sign=row.get("moon_sign", ""),
+            rising_sign=row.get("rising_sign", ""),
+        )
+        
+        # Parse JSON fields
+        natal_positions = row.get("natal_positions", {})
+        if isinstance(natal_positions, str):
+            natal_positions = json.loads(natal_positions)
+        
+        for k, v in (natal_positions or {}).items():
+            profile.natal_positions[k] = PlanetPosition(
+                planet=v["planet"],
+                longitude=v["longitude"],
+                sign=v["sign"],
+                degree_in_sign=v["degree_in_sign"],
+                house=v.get("house"),
+                retrograde=v.get("retrograde", False)
+            )
+        
+        natal_aspects = row.get("natal_aspects", [])
+        if isinstance(natal_aspects, str):
+            natal_aspects = json.loads(natal_aspects)
+        
+        for a in (natal_aspects or []):
+            profile.natal_aspects.append(Aspect(
+                planet1=a["planet1"],
+                planet2=a["planet2"],
+                aspect_type=a["aspect_type"],
+                orb=a["orb"],
+                applying=a.get("applying", False)
+            ))
+        
+        house_cusps = row.get("house_cusps", {})
+        if isinstance(house_cusps, str):
+            house_cusps = json.loads(house_cusps)
+        profile.house_cusps = {int(k): v for k, v in (house_cusps or {}).items()}
+        
+        chart_computed = row.get("chart_computed_at")
+        if chart_computed:
+            if isinstance(chart_computed, str):
+                profile.chart_computed_at = datetime.fromisoformat(chart_computed.replace('Z', '+00:00'))
+            else:
+                profile.chart_computed_at = chart_computed
+        
+        return profile
     
     async def create_or_update_profile(
         self,
@@ -506,35 +566,53 @@ class UserProfileService:
             for a in profile.natal_aspects
         ]
         
-        # Upsert to database
-        async with self.db.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO user_profiles (
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            data = {
+                "user_id": user_id,
+                "birth_datetime": birth_datetime.isoformat(),
+                "birth_latitude": birth_latitude,
+                "birth_longitude": birth_longitude,
+                "birth_location_name": birth_location_name,
+                "sun_sign": profile.sun_sign,
+                "moon_sign": profile.moon_sign,
+                "rising_sign": profile.rising_sign,
+                "natal_positions": natal_positions_json,
+                "natal_aspects": natal_aspects_json,
+                "house_cusps": profile.house_cusps,
+                "chart_computed_at": profile.chart_computed_at.isoformat()
+            }
+            client.table("user_profiles").upsert(data, on_conflict="user_id").execute()
+        else:
+            # Fallback to asyncpg
+            async with self.db.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO user_profiles (
+                        user_id, birth_datetime, birth_latitude, birth_longitude,
+                        birth_location_name, sun_sign, moon_sign, rising_sign,
+                        natal_positions, natal_aspects, house_cusps, chart_computed_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                    ON CONFLICT (user_id) DO UPDATE SET
+                        birth_datetime = EXCLUDED.birth_datetime,
+                        birth_latitude = EXCLUDED.birth_latitude,
+                        birth_longitude = EXCLUDED.birth_longitude,
+                        birth_location_name = EXCLUDED.birth_location_name,
+                        sun_sign = EXCLUDED.sun_sign,
+                        moon_sign = EXCLUDED.moon_sign,
+                        rising_sign = EXCLUDED.rising_sign,
+                        natal_positions = EXCLUDED.natal_positions,
+                        natal_aspects = EXCLUDED.natal_aspects,
+                        house_cusps = EXCLUDED.house_cusps,
+                        chart_computed_at = EXCLUDED.chart_computed_at,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
                     user_id, birth_datetime, birth_latitude, birth_longitude,
-                    birth_location_name, sun_sign, moon_sign, rising_sign,
-                    natal_positions, natal_aspects, house_cusps, chart_computed_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    birth_datetime = EXCLUDED.birth_datetime,
-                    birth_latitude = EXCLUDED.birth_latitude,
-                    birth_longitude = EXCLUDED.birth_longitude,
-                    birth_location_name = EXCLUDED.birth_location_name,
-                    sun_sign = EXCLUDED.sun_sign,
-                    moon_sign = EXCLUDED.moon_sign,
-                    rising_sign = EXCLUDED.rising_sign,
-                    natal_positions = EXCLUDED.natal_positions,
-                    natal_aspects = EXCLUDED.natal_aspects,
-                    house_cusps = EXCLUDED.house_cusps,
-                    chart_computed_at = EXCLUDED.chart_computed_at,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                user_id, birth_datetime, birth_latitude, birth_longitude,
-                birth_location_name, profile.sun_sign, profile.moon_sign,
-                profile.rising_sign, json.dumps(natal_positions_json),
-                json.dumps(natal_aspects_json), json.dumps(profile.house_cusps),
-                profile.chart_computed_at
-            )
+                    birth_location_name, profile.sun_sign, profile.moon_sign,
+                    profile.rising_sign, json.dumps(natal_positions_json),
+                    json.dumps(natal_aspects_json), json.dumps(profile.house_cusps),
+                    profile.chart_computed_at
+                )
         
         logger.info(f"Profile created/updated for user {user_id}: {profile.sun_sign} Sun, {profile.moon_sign} Moon, {profile.rising_sign} Rising")
         return profile
@@ -550,7 +628,7 @@ class UserProfileService:
         """Get existing profile or create new one if birth data provided."""
         profile = await self.get_profile(user_id)
         
-        if profile:
+        if profile and profile.sun_sign:
             return profile
         
         if birth_datetime and birth_latitude is not None and birth_longitude is not None:
@@ -562,16 +640,30 @@ class UserProfileService:
     
     async def get_all_user_ids(self) -> List[str]:
         """Get all user IDs with profiles."""
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            result = client.table("user_profiles").select("user_id").execute()
+            return [row["user_id"] for row in result.data] if result.data else []
+        
+        # Fallback to asyncpg
         async with self.db.acquire() as conn:
             rows = await conn.fetch("SELECT user_id FROM user_profiles")
             return [row["user_id"] for row in rows]
     
     async def get_users_by_sun_sign(self, sun_sign: str) -> List[str]:
         """Get all user IDs with a specific sun sign."""
+        if self._use_supabase:
+            client = self._get_supabase_client()
+            result = client.table("user_profiles") \
+                .select("user_id") \
+                .eq("sun_sign", sun_sign) \
+                .execute()
+            return [row["user_id"] for row in result.data] if result.data else []
+        
+        # Fallback to asyncpg
         async with self.db.acquire() as conn:
             rows = await conn.fetch(
                 "SELECT user_id FROM user_profiles WHERE sun_sign = $1",
                 sun_sign
             )
             return [row["user_id"] for row in rows]
-

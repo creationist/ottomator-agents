@@ -96,8 +96,13 @@ class GraphBuilder:
         episodes_created = 0
         errors = []
         
-        # Process chunks one by one to avoid overwhelming Graphiti
+        # Process chunks one by one with retry logic
         for i, chunk in enumerate(chunks):
+            max_retries = 3
+            retry_count = 0
+            success = False
+            
+            while not success and retry_count < max_retries:
             try:
                 # Create episode ID
                 episode_id = f"{document_source}_{chunk.index}_{datetime.now().timestamp()}"
@@ -129,18 +134,32 @@ class GraphBuilder:
                 
                 episodes_created += 1
                 logger.info(f"✓ Added episode {episode_id} to knowledge graph ({episodes_created}/{len(chunks)})")
+                    success = True
                 
-                # Small delay between each episode to reduce API pressure
+                    # Delay between episodes to avoid rate limiting
+                    # gpt-4o has stricter rate limits - use 5 seconds
                 if i < len(chunks) - 1:
-                    await asyncio.sleep(0.5)
+                        await asyncio.sleep(5.0)
                     
             except Exception as e:
-                error_msg = f"Failed to add chunk {chunk.index} to graph: {str(e)}"
+                    retry_count += 1
+                    error_str = str(e).lower()
+                    
+                    if "rate limit" in error_str:
+                        wait_time = 60 * retry_count  # 60s, 120s, 180s
+                        logger.warning(f"Rate limit hit on chunk {chunk.index}, waiting {wait_time}s (retry {retry_count}/{max_retries})...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        # Non-rate-limit error
+                        logger.error(f"Error on chunk {chunk.index}: {e}")
+                        if retry_count < max_retries:
+                            logger.info(f"Retrying chunk {chunk.index} in 10s (retry {retry_count}/{max_retries})...")
+                            await asyncio.sleep(10)
+            
+            if not success:
+                error_msg = f"Failed to add chunk {chunk.index} after {max_retries} retries"
                 logger.error(error_msg)
                 errors.append(error_msg)
-                
-                # Continue processing other chunks even if one fails
-                continue
         
         result = {
             "episodes_created": episodes_created,

@@ -338,3 +338,61 @@ class MonthlyContentResponse(BaseModel):
     """All monthly content for a user."""
     general: Optional[ContentResponse] = None
     personal: Optional[ContentResponse] = None
+
+
+# =============================================================================
+# Authentication Models
+# =============================================================================
+
+class AuthSignupRequest(BaseModel):
+    """Signup request."""
+    email: str = Field(..., description="Email address")
+    password: str = Field(..., min_length=6, description="Password (min 6 characters)")
+
+
+class AuthLoginRequest(BaseModel):
+    """Login request."""
+    email: str = Field(..., description="Email address")
+    password: str = Field(..., description="Password")
+
+
+class AuthUserResponse(BaseModel):
+    """User information from auth."""
+    id: str
+    email: str
+    email_confirmed: bool = False
+
+
+class AuthTokenResponse(BaseModel):
+    """Authentication token response."""
+    access_token: str
+    refresh_token: str
+    expires_in: int  # Seconds until access token expires
+    user: AuthUserResponse
+    message: Optional[str] = None
+
+
+# =============================================================================
+# Mobile-Optimized Models
+# =============================================================================
+
+class MobileContentItem(BaseModel):
+    """Compact content item for mobile."""
+    content: str
+    expires: int  # Unix timestamp
+
+
+class MobileBootstrapResponse(BaseModel):
+    """Bootstrap response for mobile app launch."""
+    profile: Optional[Dict[str, Any]] = None
+    transits: Dict[str, Any] = Field(default_factory=dict)
+    cached_content: Dict[str, MobileContentItem] = Field(default_factory=dict)
+    server_time: int  # Unix timestamp
+
+
+class MobileTodayResponse(BaseModel):
+    """Today's relevant content for mobile."""
+    date: str  # YYYY-MM-DD
+    moon_sign: str
+    content: Dict[str, Any] = Field(default_factory=dict)
+    server_time: int  # Unix timestamp

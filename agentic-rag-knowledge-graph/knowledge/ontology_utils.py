@@ -198,14 +198,16 @@ class AstrologyOntology:
         
         return list(related)
     
-    def match_keywords(self, text: str) -> List[Entity]:
+    def match_keywords(self, text: str, min_keyword_length: int = 4) -> List[Entity]:
         """
         Find all ontology concepts mentioned in a text.
         
-        Performs case-insensitive keyword matching.
+        Performs case-insensitive keyword matching with word boundaries.
         
         Args:
             text: The text to search (e.g., a user query)
+            min_keyword_length: Minimum keyword length to match (default 4).
+                               Short keywords like 'ich', 'du', 'ac' cause false positives.
             
         Returns:
             List of matching Entity objects, sorted by relevance
@@ -214,6 +216,11 @@ class AstrologyOntology:
         matches: Dict[str, int] = {}  # entity_id -> match_count
         
         for keyword, entity_ids in self._keyword_index.items():
+            # Skip very short keywords to avoid false positives
+            # (German words like "ich", "du", "ac" appear everywhere)
+            if len(keyword) < min_keyword_length:
+                continue
+            
             # Use word boundary matching for accuracy
             pattern = r'\b' + re.escape(keyword) + r'\b'
             count = len(re.findall(pattern, text_lower))

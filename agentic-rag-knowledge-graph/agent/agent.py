@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pydantic_ai import Agent, RunContext
 from dotenv import load_dotenv
 
-from .prompts import SYSTEM_PROMPT, INSPIRATIONAL_CONTENT_TEMPLATE
+from .prompts import SYSTEM_PROMPT
 from .providers import get_llm_model
 from .tools import (
     # Core search tools
@@ -236,26 +236,27 @@ async def list_documents(
 
 
 @rag_agent.tool
-async def get_entity_relationships(
+async def search_document_facts(
     ctx: RunContext[AgentDependencies],
     entity_name: str,
     depth: int = 2
 ) -> Dict[str, Any]:
     """
-    Explore how an astrological concept relates to others in the knowledge graph.
+    Search for facts about an entity EXTRACTED FROM INGESTED DOCUMENTS.
     
-    Use this to understand connections between:
-    - Planets and their mythological/psychological associations
-    - Signs and their ruling planets, elements, qualities
-    - Houses and life areas they represent
-    - Aspects and their effects
+    ⚠️ THIS IS NOT FOR ASTROLOGY BASICS! For planets, signs, houses, aspects use:
+    - lookup_concept() for definitions
+    - explore_ontology() for relationships
+    
+    Only use this tool when you need to find what the USER'S DOCUMENTS say about something,
+    not for standard astrological knowledge.
     
     Args:
-        entity_name: Name of concept to explore (e.g., "Saturn", "Skorpion", "8. Haus")
-        depth: How many relationship levels to traverse (1-3)
+        entity_name: Name to search in documents
+        depth: Search depth (1-3)
     
     Returns:
-        Connected entities and relationship types
+        Facts extracted from user's documents (may be empty if not ingested)
     """
     input_data = EntityRelationshipInput(
         entity_name=entity_name,
@@ -326,87 +327,83 @@ async def lookup_concept(
 
 
 # =============================================================================
-# Content Generation Tool
+# Comprehensive Lookup Tool (Combines ALL sources)
 # =============================================================================
 
 @rag_agent.tool
-async def generate_personalized_content(
+async def comprehensive_lookup(
     ctx: RunContext[AgentDependencies],
-    topic: str,
-    user_birthday: Optional[str] = None,
-    sun_sign: Optional[str] = None,
-    moon_sign: Optional[str] = None,
-    rising_sign: Optional[str] = None,
-    additional_context: Optional[str] = None
+    concept: str
 ) -> Dict[str, Any]:
     """
-    Create personalized astrological content for the user.
+    Get complete knowledge about an astrological concept from all sources.
     
-    Use this when the user asks for personalized readings, insights about their
-    chart, or inspirational content about a specific astrological event.
+    Use for any question about astrology concepts, people's charts, events, etc.
     
     Args:
-        topic: What to create content about (e.g., "Neumond im Skorpion", "meine Woche")
-        user_birthday: User's birthday (optional)
-        sun_sign: User's Sonnenzeichen (optional)
-        moon_sign: User's Mondzeichen (optional)
-        rising_sign: User's Aszendent (optional)
-        additional_context: Other astrological info (optional)
+        concept: Any astrological term (planet, sign, house, aspect, theme, transit, etc.)
     
     Returns:
-        Template and retrieved content for generating personalized response
+        Structured data from ontology + relevant document excerpts
     """
-    # Build user context string
-    context_parts = []
-    if user_birthday:
-        context_parts.append(f"Geburtstag: {user_birthday}")
-    if sun_sign:
-        context_parts.append(f"Sonnenzeichen: {sun_sign}")
-    if moon_sign:
-        context_parts.append(f"Mondzeichen: {moon_sign}")
-    if rising_sign:
-        context_parts.append(f"Aszendent: {rising_sign}")
-    if additional_context:
-        context_parts.append(f"Weitere Informationen: {additional_context}")
-    
-    user_context = "\n".join(context_parts) if context_parts else "Keine spezifischen astrologischen Daten angegeben"
-    
-    # Search for relevant content about the topic
-    search_results = await hybrid_search_tool(
-        HybridSearchInput(query=topic, limit=5, text_weight=0.3)
-    )
-    
-    # Format retrieved content
-    if search_results:
-        retrieved_content = "\n\n".join([
-            f"**{r.document_title}:**\n{r.content[:500]}..."
-            for r in search_results
-        ])
-    else:
-        retrieved_content = "Keine spezifischen Dokumente gefunden. Nutze dein allgemeines astrologisches Wissen."
-    
-    # Fill the template
-    filled_template = INSPIRATIONAL_CONTENT_TEMPLATE.format(
-        user_context=user_context,
-        retrieved_content=retrieved_content
-    )
-    
-    return {
-        "template": filled_template,
-        "user_context": user_context,
-        "retrieved_content": retrieved_content,
-        "topic": topic,
-        "instructions": """
-Nutze diese Informationen um einen inspirierenden, personalisierten Text zu erstellen.
-Der Text sollte:
-- Warm und einfühlsam sein
-- Die kosmischen Energien mit dem Leben des Nutzers verbinden
-- Bedeutungsvolle Einsichten und Ermutigung bieten
-- Poetisch und berührend formuliert sein
-- Praktische Weisheit für den Alltag enthalten
-- Die spezifischen astrologischen Daten des Nutzers einbeziehen (falls vorhanden)
-"""
+    result = {
+        "query": concept,
+        "ontology": None,
+        "documents": [],
+        "usage_hint": None
     }
+    
+    # 1. Get ontology data (if concept exists there)
+    try:
+        ontology_data = lookup_ontology_concept(OntologyLookupInput(concept=concept))
+        if ontology_data.get("found"):
+            concept_info = ontology_data.get("concept", {})
+            concept_type = concept_info.get("type", "unknown")
+            
+            result["ontology"] = {
+                "name": concept_info.get("name"),
+                "type": concept_type,
+                "description": concept_info.get("description"),
+                "keywords": concept_info.get("keywords", [])[:8],
+                "attributes": concept_info.get("attributes", {}),
+                "relationships": ontology_data.get("relationships", [])[:5],
+                "related_concepts": ontology_data.get("related_concepts", [])[:5]
+            }
+            
+            # Add type-specific usage hint to prevent attribute confusion
+            if concept_type == "planet":
+                result["usage_hint"] = "Dies ist ein PLANET. Planeten haben: Herrschaft über Zeichen, Erhöhung, Fall. Planeten haben KEINE Elemente oder Modalitäten."
+            elif concept_type == "sign":
+                result["usage_hint"] = "Dies ist ein TIERKREISZEICHEN. Zeichen haben: Element, Modalität, Herrscherplanet."
+                
+    except Exception as e:
+        logger.warning(f"Ontology lookup failed for {concept}: {e}")
+    
+    # 2. Get relevant document content
+    try:
+        doc_results = await hybrid_search_tool(
+            HybridSearchInput(query=concept, limit=3, text_weight=0.3)
+        )
+        if doc_results:
+            result["documents"] = [
+                {
+                    "excerpt": r.get("content", "")[:400],
+                    "source": r.get("document_title", "Unknown"),
+                    "relevance": round(r.get("combined_score", 0), 2)
+                }
+                for r in doc_results[:3]
+            ]
+    except Exception as e:
+        logger.warning(f"Document search failed for {concept}: {e}")
+    
+    # 3. Summary
+    result["summary"] = {
+        "found_in_ontology": result["ontology"] is not None,
+        "document_matches": len(result["documents"]),
+        "concept_type": result["ontology"]["type"] if result["ontology"] else "unknown"
+    }
+    
+    return result
 
 
 # =============================================================================
