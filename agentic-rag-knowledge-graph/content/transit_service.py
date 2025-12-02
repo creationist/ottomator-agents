@@ -210,6 +210,11 @@ class TransitService:
         
         for planet_name, planet_id in PLANETS.items():
             lon, retrograde = self.calculator.calculate_planet_position(planet_id, jd)
+            
+            # Skip planets that couldn't be calculated (e.g., Chiron without ephemeris files)
+            if lon is None:
+                continue
+            
             sign, degree = self.calculator._longitude_to_sign(lon)
             
             positions[planet_name] = PlanetPosition(

@@ -16,6 +16,25 @@ python -m ingestion.ingest --documents documents/ --clean --no-semantic
 
 That's it! Your documents are now searchable via vector search and linked to the knowledge graph.
 
+# 1. Clean everything
+python scripts/clean_databases.py
+
+# 2. Seed ontology (creates OntologyEntity nodes)
+python -m knowledge.seed_neo4j
+
+# 3. Ontology ingestion (Supabase + Chunk/MENTIONS in Neo4j)
+python -m ingestion.ingest -d documents/
+
+# 4. Graphiti ingestion (Entity/Episodic in Neo4j only)
+python -m ingestion.ingest -d documents/ --graphiti --graph-only
+
+# See what would be matched without making changes
+python scripts/merge_graphiti_ontology.py --dry-run
+
+# 5. Merge entities (links Graphiti → Ontology)
+python scripts/merge_graphiti_ontology.py
+
+
 ---
 
 ## Architecture Overview

@@ -216,10 +216,26 @@ class UserAstroProfile:
 class ChartCalculator:
     """Calculates astrological charts using Swiss Ephemeris."""
     
-    def __init__(self):
+    # Default flags for Swiss Ephemeris calculations
+    # Will try ephemeris files first, fall back to Moshier if not available
+    CALC_FLAGS = 0 if SWISSEPH_AVAILABLE else 0
+    
+    def __init__(self, ephe_path: Optional[str] = None):
         if SWISSEPH_AVAILABLE:
-            # Use built-in ephemeris (less accurate but no external files needed)
-            swe.set_ephe_path(None)
+            # Set ephemeris path - look for files in ephe/ directory relative to project
+            if ephe_path is None:
+                import os
+                # Try to find ephe directory relative to this file
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                ephe_path = os.path.join(base_dir, "ephe")
+            
+            if os.path.isdir(ephe_path):
+                swe.set_ephe_path(ephe_path)
+                logger.info(f"Using Swiss Ephemeris files from: {ephe_path}")
+            else:
+                # Fall back to Moshier if no ephemeris directory
+                swe.set_ephe_path("")
+                logger.warning(f"Ephemeris directory not found at {ephe_path}, using Moshier mode")
     
     def _datetime_to_julian(self, dt: datetime) -> float:
         """Convert datetime to Julian Day."""
@@ -253,12 +269,29 @@ class ChartCalculator:
             # Fallback: return rough estimates
             return (planet_id * 30.0) % 360, False
         
-        result = swe.calc_ut(julian_day, planet_id)
-        longitude = result[0][0]
-        # Check retrograde (negative speed)
-        speed = result[0][3]
-        retrograde = speed < 0
-        return longitude, retrograde
+        try:
+            # Try with default flags (uses ephemeris files if available)
+            result = swe.calc_ut(julian_day, planet_id, self.CALC_FLAGS)
+            longitude = result[0][0]
+            # Check retrograde (negative speed)
+            speed = result[0][3]
+            retrograde = speed < 0
+            return longitude, retrograde
+        except Exception as e:
+            # If ephemeris files not found, try Moshier for main planets
+            if "not found" in str(e) and planet_id <= swe.PLUTO:
+                try:
+                    result = swe.calc_ut(julian_day, planet_id, swe.FLG_MOSEPH)
+                    longitude = result[0][0]
+                    speed = result[0][3]
+                    retrograde = speed < 0
+                    return longitude, retrograde
+                except Exception:
+                    pass
+            
+            # Chiron and other asteroids require ephemeris files
+            logger.debug(f"Could not calculate position for planet_id {planet_id}: {e}")
+            return None, False
     
     def calculate_houses(
         self,
@@ -350,6 +383,11 @@ class ChartCalculator:
         positions = {}
         for planet_name, planet_id in PLANETS.items():
             lon, retrograde = self.calculate_planet_position(planet_id, jd)
+            
+            # Skip planets that couldn't be calculated (e.g., Chiron without ephemeris files)
+            if lon is None:
+                continue
+            
             sign, degree = self._longitude_to_sign(lon)
             house = self.get_house_for_position(lon, house_cusps)
             

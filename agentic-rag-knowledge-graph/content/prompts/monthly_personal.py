@@ -163,3 +163,4 @@ Erstelle 3-5 personalisierte Monats-Highlights (~400-500 Wörter gesamt).
 Schreibe auf Deutsch, persönlich und ermutigend."""
 
 
+

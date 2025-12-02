@@ -387,9 +387,9 @@ async def comprehensive_lookup(
         if doc_results:
             result["documents"] = [
                 {
-                    "excerpt": r.get("content", "")[:400],
-                    "source": r.get("document_title", "Unknown"),
-                    "relevance": round(r.get("combined_score", 0), 2)
+                    "excerpt": r.content[:400] if r.content else "",
+                    "source": r.document_title or "Unknown",
+                    "relevance": round(r.score, 2)
                 }
                 for r in doc_results[:3]
             ]

@@ -234,3 +234,4 @@ LEFT JOIN chunks c ON d.id = c.document_id
 GROUP BY d.id, d.title, d.source, d.created_at, d.updated_at, d.metadata;
 
 
+

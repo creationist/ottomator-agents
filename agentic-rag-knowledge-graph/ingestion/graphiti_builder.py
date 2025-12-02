@@ -103,45 +103,45 @@ class GraphBuilder:
             success = False
             
             while not success and retry_count < max_retries:
-            try:
-                # Create episode ID
-                episode_id = f"{document_source}_{chunk.index}_{datetime.now().timestamp()}"
-                
-                # Prepare episode content with size limits
-                episode_content = self._prepare_episode_content(
-                    chunk,
-                    document_title,
-                    document_metadata
-                )
-                
-                # Create source description (shorter)
-                source_description = f"Document: {document_title} (Chunk: {chunk.index})"
-                
-                # Add episode to graph
-                await self.graph_client.add_episode(
-                    episode_id=episode_id,
-                    content=episode_content,
-                    source=source_description,
-                    timestamp=datetime.now(timezone.utc),
-                    metadata={
-                        "document_title": document_title,
-                        "document_source": document_source,
-                        "chunk_index": chunk.index,
-                        "original_length": len(chunk.content),
-                        "processed_length": len(episode_content)
-                    }
-                )
-                
-                episodes_created += 1
-                logger.info(f"✓ Added episode {episode_id} to knowledge graph ({episodes_created}/{len(chunks)})")
+                try:
+                    # Create episode ID
+                    episode_id = f"{document_source}_{chunk.index}_{datetime.now().timestamp()}"
+                    
+                    # Prepare episode content with size limits
+                    episode_content = self._prepare_episode_content(
+                        chunk,
+                        document_title,
+                        document_metadata
+                    )
+                    
+                    # Create source description (shorter)
+                    source_description = f"Document: {document_title} (Chunk: {chunk.index})"
+                    
+                    # Add episode to graph
+                    await self.graph_client.add_episode(
+                        episode_id=episode_id,
+                        content=episode_content,
+                        source=source_description,
+                        timestamp=datetime.now(timezone.utc),
+                        metadata={
+                            "document_title": document_title,
+                            "document_source": document_source,
+                            "chunk_index": chunk.index,
+                            "original_length": len(chunk.content),
+                            "processed_length": len(episode_content)
+                        }
+                    )
+                    
+                    episodes_created += 1
+                    logger.info(f"✓ Added episode {episode_id} to knowledge graph ({episodes_created}/{len(chunks)})")
                     success = True
-                
+                    
                     # Delay between episodes to avoid rate limiting
                     # gpt-4o has stricter rate limits - use 5 seconds
-                if i < len(chunks) - 1:
+                    if i < len(chunks) - 1:
                         await asyncio.sleep(5.0)
                     
-            except Exception as e:
+                except Exception as e:
                     retry_count += 1
                     error_str = str(e).lower()
                     

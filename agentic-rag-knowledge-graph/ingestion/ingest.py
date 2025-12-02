@@ -89,8 +89,8 @@ class DocumentIngestionPipeline:
             logger.info("Using Graphiti LLM-based graph builder (richer extraction, costs LLM tokens)")
         else:
             # Ontology: Regex-based matching - fast and free but limited
-        self.graph_builder = create_ontology_graph_builder()
-        self.use_ontology_mode = True
+            self.graph_builder = create_ontology_graph_builder()
+            self.use_ontology_mode = True
             logger.info("Using ontology-based graph builder (zero LLM calls)")
         
         self._initialized = False
@@ -259,14 +259,14 @@ class DocumentIngestionPipeline:
         # Save to PostgreSQL (skip if graph_only mode)
         document_id = ""
         if not self.graph_only:
-        document_id = await self._save_to_postgres(
-            document_title,
-            document_source,
-            document_content,
-            embedded_chunks,
-            document_metadata
-        )
-        logger.info(f"Saved document to PostgreSQL with ID: {document_id}")
+            document_id = await self._save_to_postgres(
+                document_title,
+                document_source,
+                document_content,
+                embedded_chunks,
+                document_metadata
+            )
+            logger.info(f"Saved document to PostgreSQL with ID: {document_id}")
         else:
             logger.info("Skipping PostgreSQL save (graph_only mode)")
         
